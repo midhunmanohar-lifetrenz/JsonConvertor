@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using JSONConverterPro.Core.Models;
 
@@ -17,6 +18,16 @@ public sealed class CsvExportService
 {
     public IExportWriter CreateWriter(IReadOnlyList<TableSchema> tables, IReadOnlyList<string> paths, ConversionSettings settings)
         => new CsvWriter(tables, paths, settings);
+
+    /// <summary>Neutralises spreadsheet formula injection (OWASP "CSV injection") for text values.</summary>
+    internal static string ProtectFormula(string s)
+    {
+        if (s.Length == 0) return s;
+        char f = s[0];
+        if (f is not ('=' or '+' or '-' or '@' or '\t' or '\r')) return s;
+        if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out _)) return s;   // a real number is not a formula
+        return "'" + s;
+    }
 
     internal static string Escape(string s, char delimiter)
     {
@@ -45,7 +56,7 @@ public sealed class CsvExportService
                 for (int c = 0; c < cols.Count; c++)
                 {
                     if (c > 0) _w[i].Write(_d);
-                    _w[i].Write(Escape(cols[c].Name, _d));
+                    _w[i].Write(Escape(s.ProtectCsvFormulas ? ProtectFormula(cols[c].Name) : cols[c].Name, _d));
                 }
                 _w[i].Write("\r\n");
             }
@@ -58,7 +69,11 @@ public sealed class CsvExportService
             {
                 if (c > 0) w.Write(_d);
                 string text = cells[c].DisplayText(_s.NullHandling);
-                if (text.Length > 0) w.Write(Escape(text, _d));
+                if (text.Length > 0)
+                {
+                    if (_s.ProtectCsvFormulas && cells[c].Kind == CellKind.Text) text = ProtectFormula(text);
+                    w.Write(Escape(text, _d));
+                }
             }
             w.Write("\r\n");
         }

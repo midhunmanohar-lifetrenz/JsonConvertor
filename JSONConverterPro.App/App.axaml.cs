@@ -55,7 +55,9 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var window = new MainWindow { DataContext = Services.GetRequiredService<MainViewModel>() };
+            var vm = Services.GetRequiredService<MainViewModel>();
+            desktop.Exit += (_, _) => vm.Shutdown();   // pasted patient data must not outlive the session
+            var window = new MainWindow { DataContext = vm };
             Services.GetRequiredService<DialogService>().Owner = window;
             desktop.MainWindow = window;
         }

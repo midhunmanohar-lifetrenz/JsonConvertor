@@ -31,6 +31,12 @@ public partial class MainViewModel : ObservableObject
         LogEntries = logStore.Entries;
         foreach (var h in state.State.History.Take(100)) History.Add(h);
         LastOutputFolder = state.State.LastOutputDirectory ?? "";
+        var ps = state.State.Settings ?? new PersistedSettings();
+        IsExcel = ps.IsExcel; SheetName = string.IsNullOrWhiteSpace(ps.SheetName) ? "Data" : ps.SheetName;
+        FlattenNested = ps.FlattenNested; ParseDates = ps.ParseDates; ProtectCsv = ps.ProtectCsv;
+        ArrayModeIndex = Math.Clamp(ps.ArrayModeIndex, 0, 3); OrderIndex = Math.Clamp(ps.OrderIndex, 0, 3);
+        NullIndex = Math.Clamp(ps.NullIndex, 0, 1); DelimiterIndex = Math.Clamp(ps.DelimiterIndex, 0, 2);
+        CustomOrderText = ps.CustomOrderText ?? "";
         Version = "v" + (Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0");
         TryCleanTempDir();
         _loading = false;
@@ -67,6 +73,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private int _nullIndex;
     [ObservableProperty] private int _delimiterIndex;
     [ObservableProperty] private string _customOrderText = "";
+    [ObservableProperty] private bool _protectCsv = true;
 
     /// <summary>Last folder a file was saved to. Only used to start the next dialog there; it is never shown as a default path.</summary>
     [ObservableProperty] private string _lastOutputFolder = "";
@@ -134,6 +141,7 @@ public partial class MainViewModel : ObservableObject
         SheetName = string.IsNullOrWhiteSpace(SheetName) ? "Data" : SheetName.Trim(),
         FlattenNestedObjects = FlattenNested,
         ParseDates = ParseDates,
+        ProtectCsvFormulas = ProtectCsv,
         ArrayHandling = (ArrayHandling)Math.Clamp(ArrayModeIndex, 0, 3),
         ColumnOrdering = (ColumnOrdering)Math.Clamp(OrderIndex, 0, 3),
         NullHandling = (NullHandling)Math.Clamp(NullIndex, 0, 1),
@@ -149,13 +157,30 @@ public partial class MainViewModel : ObservableObject
     partial void OnIsExcelChanged(bool value)
     {
         OnPropertyChanged(nameof(IsCsv)); OnPropertyChanged(nameof(ShowDelimiter)); OnPropertyChanged(nameof(ShowSheetName));
+        SaveSettings();
     }
-    partial void OnArrayModeIndexChanged(int value) { OnPropertyChanged(nameof(ArrayHint)); SchedulePreview(); }
-    partial void OnOrderIndexChanged(int value) { OnPropertyChanged(nameof(IsCustomOrder)); SchedulePreview(); }
-    partial void OnNullIndexChanged(int value) => SchedulePreview();
-    partial void OnFlattenNestedChanged(bool value) => SchedulePreview();
-    partial void OnParseDatesChanged(bool value) => SchedulePreview();
-    partial void OnCustomOrderTextChanged(string value) { if (IsCustomOrder) SchedulePreview(); }
+    partial void OnArrayModeIndexChanged(int value) { OnPropertyChanged(nameof(ArrayHint)); SaveSettings(); SchedulePreview(); }
+    partial void OnOrderIndexChanged(int value) { OnPropertyChanged(nameof(IsCustomOrder)); SaveSettings(); SchedulePreview(); }
+    partial void OnNullIndexChanged(int value) { SaveSettings(); SchedulePreview(); }
+    partial void OnFlattenNestedChanged(bool value) { SaveSettings(); SchedulePreview(); }
+    partial void OnParseDatesChanged(bool value) { SaveSettings(); SchedulePreview(); }
+    partial void OnCustomOrderTextChanged(string value) { SaveSettings(); if (IsCustomOrder) SchedulePreview(); }
+    partial void OnSheetNameChanged(string value) => SaveSettings();
+    partial void OnDelimiterIndexChanged(int value) => SaveSettings();
+    partial void OnProtectCsvChanged(bool value) => SaveSettings();
+
+    /// <summary>Remembers the user's conversion options between runs.</summary>
+    private void SaveSettings()
+    {
+        if (_loading) return;
+        _state.State.Settings = new PersistedSettings
+        {
+            IsExcel = IsExcel, SheetName = SheetName, FlattenNested = FlattenNested, ParseDates = ParseDates, ProtectCsv = ProtectCsv,
+            ArrayModeIndex = ArrayModeIndex, OrderIndex = OrderIndex, NullIndex = NullIndex, DelimiterIndex = DelimiterIndex,
+            CustomOrderText = CustomOrderText
+        };
+        _state.Save();
+    }
     partial void OnPreviewColumnCountChanged(int value) => OnPropertyChanged(nameof(ColumnsText));
     partial void OnHasPreviewChanged(bool value) => OnPropertyChanged(nameof(ColumnsText));
     partial void OnPasteStatusKindChanged(string value)
@@ -178,7 +203,15 @@ public partial class MainViewModel : ObservableObject
     //  Paste area (the first screen)
     // ============================================================
 
-    private static string TempDir => Path.Combine(Path.GetTempPath(), "JSONConverterPro", "paste");
+    public static string TempDir => Path.Combine(Path.GetTempPath(), "JSONConverterPro", "paste");
+    /// <summary>Called when the app quits: stops work and removes every temporary copy of pasted data.</summary>
+    public void Shutdown()
+    {
+        _pasteDebounceCts?.Cancel(); _pasteCts?.Cancel(); _previewCts?.Cancel(); _convertCts?.Cancel();
+        TryDelete(_pasteFile); _pasteFile = null;
+        TryCleanTempDir();
+    }
+
     private static void TryCleanTempDir() { try { if (Directory.Exists(TempDir)) Directory.Delete(TempDir, true); } catch { /* locked: ignore */ } }
     private static void TryDelete(string? path) { if (path != null) FileService.TryDelete(path); }
 

@@ -367,6 +367,40 @@ public class ConversionTests : IDisposable
         Assert.Equal(4, ReadCsv(tab.OutputFiles[0], '\t')[1].Count);
     }
 
+    // ---------- Security
+
+    [Fact]
+    public void Csv_ProtectsAgainstFormulaInjection_ButNeverTouchesNumbers()
+    {
+        var p = h.Write("inj.json", """[{"a":"=HYPERLINK(\"http://x\")","b":"@SUM(A1)","c":"-5.2","d":"+91 98765 43210","e":"plain","f":-7,"g":"-cmd|' /C calc'!A0"}]""");
+        var r = h.Run(p, Csv());
+        var (hdr, rows) = Csv1(r.OutputFiles[0]);
+        string V(string c) => rows[0][hdr.IndexOf(c)];
+        Assert.StartsWith("'=", V("a"));
+        Assert.StartsWith("'@", V("b"));
+        Assert.Equal("-5.2", V("c"));              // numeric text untouched
+        Assert.StartsWith("'+91", V("d"));         // phone-style text is protected
+        Assert.Equal("plain", V("e"));
+        Assert.Equal("-7", V("f"));                // real JSON numbers untouched
+        Assert.StartsWith("'-cmd", V("g"));
+
+        var off = h.Run(p, Csv(s => s.ProtectCsvFormulas = false));
+        var (h2, r2) = Csv1(off.OutputFiles[0]);
+        Assert.StartsWith("=HYPERLINK", r2[0][h2.IndexOf("a")]);
+    }
+
+    [Fact]
+    public void Excel_StoresFormulaLookingTextAsText_NotAsFormula()
+    {
+        var p = h.Write("inj2.json", """[{"a":"=1+1","b":"@SUM(A1)"}]""");
+        var r = h.Run(p, Xlsx());
+        using var wb = OpenXlsx(r.OutputFiles[0]);
+        var cell = wb.Worksheet(1).Cell(2, 1);
+        Assert.False(cell.HasFormula);
+        Assert.Equal(XLDataType.Text, cell.DataType);
+        Assert.Equal("=1+1", cell.GetString());
+    }
+
     // ---------- Error handling
 
     [Fact]

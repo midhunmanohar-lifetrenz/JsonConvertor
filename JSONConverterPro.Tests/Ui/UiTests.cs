@@ -108,8 +108,10 @@ public class UiTests
     // every test still gets its own fresh object graph, view model and fake dialogs.
     private static MainWindow? _shared;
 
-    private static (MainWindow win, MainViewModel vm, FakeDialogs dlg) Create()
+    private static (MainWindow win, MainViewModel vm, FakeDialogs dlg) Create(string? stateDir = null)
     {
+        // Every view model gets its own settings file unless a test asks to share one.
+        Environment.SetEnvironmentVariable("JCP_STATE_DIR", stateDir ?? Path.Combine(Path.GetTempPath(), "jcp-ui-state-" + Guid.NewGuid().ToString("N")[..6]));
         var dlg = new FakeDialogs();
         var sp = App.BuildServices(sc => sc.AddSingleton<IDialogService>(dlg));
         var vm = sp.GetRequiredService<MainViewModel>();
@@ -235,6 +237,37 @@ public class UiTests
         Assert.DoesNotContain("OLD", File.ReadAllText(csv));
         Assert.Empty(Directory.GetFiles(dir, "*.tmp"));
         Directory.Delete(dir, true);
+    }
+
+    // ------------------------------------------------------------------ privacy and persistence
+
+    [AvaloniaFact]
+    public void Shutdown_RemovesPastedDataFromDisk()
+    {
+        var (win, vm, dlg) = Create();
+        SetPaste(vm, """{"patient":"Confidential","id":1}""");
+        Assert.True(vm.PasteIsOk);
+        Assert.True(Directory.Exists(MainViewModel.TempDir) && Directory.GetFiles(MainViewModel.TempDir).Length > 0);
+        vm.Shutdown();
+        Assert.False(Directory.Exists(MainViewModel.TempDir));
+    }
+
+    [AvaloniaFact]
+    public void Settings_AreRememberedBetweenRuns()
+    {
+        string state = Path.Combine(Path.GetTempPath(), "jcp-ui-state-" + Guid.NewGuid().ToString("N")[..6]);
+        var (_, vm1, _) = Create(state);
+        vm1.IsExcel = false; vm1.SheetName = "Patients"; vm1.FlattenNested = false; vm1.ParseDates = false; vm1.ProtectCsv = false;
+        vm1.ArrayModeIndex = 2; vm1.OrderIndex = 3; vm1.NullIndex = 1; vm1.DelimiterIndex = 2; vm1.CustomOrderText = "id\nname";
+
+        var (_, vm2, _) = Create(state);                   // "next launch"
+        Assert.False(vm2.IsExcel); Assert.Equal("Patients", vm2.SheetName); Assert.False(vm2.FlattenNested);
+        Assert.False(vm2.ParseDates); Assert.False(vm2.ProtectCsv);
+        Assert.Equal(2, vm2.ArrayModeIndex); Assert.Equal(3, vm2.OrderIndex); Assert.Equal(1, vm2.NullIndex);
+        Assert.Equal(2, vm2.DelimiterIndex); Assert.Equal("id\nname", vm2.CustomOrderText);
+
+        var (_, vm3, _) = Create();                        // a different profile starts with defaults
+        Assert.True(vm3.IsExcel); Assert.True(vm3.ProtectCsv); Assert.Equal(0, vm3.ArrayModeIndex);
     }
 
     // ------------------------------------------------------------------ files (batch) pages

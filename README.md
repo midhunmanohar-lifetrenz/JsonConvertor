@@ -18,7 +18,7 @@ Runs on **Windows x64** and **macOS Apple Silicon**. No Excel, Python, .NET SDK 
 - Preview of the first 10 records with detected columns, total records/columns, horizontal + vertical scroll; cleared when the selected file changes
 - Excel: bold frozen header, filters, capped auto widths, typed numbers/booleans/dates, Unicode, automatic extra worksheet every 1,048,575 data rows
 - CSV: UTF-8 with BOM, RFC 4180 quoting (commas, quotes, line breaks), comma / semicolon / tab, fully streamed to disk
-- Progress with record count, cancel, overwrite confirmation, last output folder remembered, recent-conversion history, in-app error log (+ log files)
+- Progress with record count, cancel, overwrite confirmation, your conversion options remembered between runs, recent-conversion history, in-app error log (+ log files)
 
 ## Data-integrity rules implemented
 
@@ -30,6 +30,8 @@ Runs on **Windows x64** and **macOS Apple Silicon**. No Excel, Python, .NET SDK 
 | Leading zeros | Strings are never converted to numbers (`"000123"` stays `000123`) |
 | Dates | Only strict ISO-8601 without a time-zone (`2024-03-15`, `2024-03-15T10:30:00`) become Excel dates. `01/02/2024`, `20240315`, and values with `Z`/offset stay text |
 | Excel vs CSV | Same flattening and ordering code; CSV holds the original text of every value |
+| CSV formula injection | CSV text starting with `=` `+` `-` `@` gets a leading `'` (on by default, toggle in Settings). Real numbers like `-5.2` are never changed; Excel files store such text as plain text |
+| Privacy | Pasted JSON is held in temp files only while the app runs; they are deleted when you quit (and any leftovers on the next start) |
 | No overwrite | Existing output → confirmation prompt; output is written to a temp file and moved into place, so a cancel/failure never leaves a partial file |
 
 ## Build and run
@@ -90,7 +92,7 @@ The engine lives in a separate `Core` library so it is fully testable and identi
 
 ## Tests
 
-46 automated tests, including: simple/nested/array-of-objects, null and missing, empty and invalid JSON, Unicode (UTF-8, UTF-8 BOM, UTF-16),
+50 automated tests, including: simple/nested/array-of-objects, null and missing, empty and invalid JSON, Unicode (UTF-8, UTF-8 BOM, UTF-16),
 duplicate/colliding columns, big IDs and leading zeros, ISO date detection, column ordering modes, CSV escaping and delimiters,
 overwrite confirmation, cancellation (no files left behind), multiple independent files, preview isolation between files,
 Excel row-limit splitting, a generated **10 MB** file converted to both formats with cell-by-cell equivalence checks,

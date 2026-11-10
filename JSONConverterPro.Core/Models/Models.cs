@@ -19,6 +19,11 @@ public sealed class ConversionSettings
     public NullHandling NullHandling { get; set; } = NullHandling.Blank;
     public CsvDelimiter CsvDelimiter { get; set; } = CsvDelimiter.Comma;
     public bool ParseDates { get; set; } = true;
+    /// <summary>
+    /// CSV only: prefix text that starts with = + - @ (or a tab/CR) with an apostrophe so spreadsheet programs
+    /// can't run it as a formula. Plain numbers such as "-5.2" are left alone.
+    /// </summary>
+    public bool ProtectCsvFormulas { get; set; } = true;
     public string ArrayJoinSeparator { get; set; } = "; ";
     /// <summary>Data rows per worksheet (Excel limit is 1,048,576 including the header row).</summary>
     public int MaxRowsPerSheet { get; set; } = 1_048_575;

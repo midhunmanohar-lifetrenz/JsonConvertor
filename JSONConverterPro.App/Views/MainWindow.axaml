@@ -194,6 +194,8 @@
               <StackPanel Spacing="4"><TextBlock Classes="muted" Text="Sheet name (Excel)" /><TextBox Text="{Binding SheetName}" Width="260" HorizontalAlignment="Left" MaxLength="31" /></StackPanel>
               <StackPanel Spacing="4"><TextBlock Classes="muted" Text="CSV delimiter" />
                 <ComboBox SelectedIndex="{Binding DelimiterIndex}" Width="260"><ComboBoxItem Content="Comma ( , )" /><ComboBoxItem Content="Semicolon ( ; )" /><ComboBoxItem Content="Tab" /></ComboBox></StackPanel>
+              <CheckBox IsChecked="{Binding ProtectCsv}" Content="Protect CSV from formula injection (adds a ' before text starting with = + - @)" />
+              <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" Text="Recommended when the data comes from outside your organisation. Plain numbers are never changed, and Excel files are always safe." />
             </StackPanel>
           </Border>
           <Border Classes="card">

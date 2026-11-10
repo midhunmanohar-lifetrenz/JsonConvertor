@@ -28,8 +28,23 @@ public sealed class LogStore
     }
 }
 
+public sealed class PersistedSettings
+{
+    public bool IsExcel { get; set; } = true;
+    public string SheetName { get; set; } = "Data";
+    public bool FlattenNested { get; set; } = true;
+    public bool ParseDates { get; set; } = true;
+    public bool ProtectCsv { get; set; } = true;
+    public int ArrayModeIndex { get; set; }
+    public int OrderIndex { get; set; }
+    public int NullIndex { get; set; }
+    public int DelimiterIndex { get; set; }
+    public string CustomOrderText { get; set; } = "";
+}
+
 public sealed class AppState
 {
+    public PersistedSettings Settings { get; set; } = new();
     public string? LastOutputDirectory { get; set; }
     public List<HistoryEntry> History { get; set; } = new();
 }
