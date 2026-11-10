@@ -23,6 +23,15 @@ public sealed class ScanOutcome
     public TableRegistry Tables { get; init; } = new();
     public WarningCollector Warnings { get; init; } = new();
     public List<(long RecordNo, FlatResult Result)> Sample { get; } = new();
+    public long MainRows { get; set; }
+    public List<ColumnStat> MainStats { get; } = new();
+}
+
+public sealed class ColumnStat
+{
+    public long Filled, Nulls;
+    public int Kinds;
+    public string? Sample;
 }
 
 /// <summary>Orchestrates: scan (learn all columns) → order columns → write rows. Streams both passes.</summary>
@@ -52,6 +61,24 @@ public sealed class ConversionService
         {
             var res = flatten.Flatten(el, idx);
             outcome.Records = idx;
+            foreach (var row in res.Main)
+            {
+                outcome.MainRows++;
+                foreach (var kv in row.Cells)
+                {
+                    while (outcome.MainStats.Count <= kv.Key) outcome.MainStats.Add(new ColumnStat());
+                    var st = outcome.MainStats[kv.Key];
+                    switch (kv.Value.Kind)
+                    {
+                        case CellKind.Null: st.Nulls++; break;
+                        case CellKind.Missing: case CellKind.Empty: break;
+                        default:
+                            st.Filled++; st.Kinds |= 1 << (int)kv.Value.Kind;
+                            st.Sample ??= (kv.Value.Text ?? "") is { Length: > 60 } t ? t[..60] + "…" : kv.Value.Text ?? "";
+                            break;
+                    }
+                }
+            }
             if (idx <= sampleRecords) outcome.Sample.Add((idx, res));
             return true;
         }, ct, b =>
@@ -91,15 +118,14 @@ public sealed class ConversionService
             // ---- Column order & schemas
             var tableNames = scan.Tables.Names.ToList();
             var schemas = new List<TableSchema>();
-            var posMaps = new List<int[]>();
+            var shapes = new List<TableShape>();
             foreach (var tn in tableNames)
             {
-                var cols = scan.Tables.Get(tn).Columns;
-                var order = ColumnOrderingHelper.Order(cols, settings);
-                var pos = new int[cols.Count];
-                for (int i = 0; i < order.Length; i++) pos[order[i]] = i;
-                schemas.Add(new TableSchema(tn, order.Select(id => cols[id]).ToList()));
-                posMaps.Add(pos);
+                var shape = ColumnShaper.Shape(scan.Tables.Get(tn).Columns, settings);
+                if (shape.DataColumnCount == 0)
+                    throw new UserFacingException("Every column is excluded, so there is nothing to export. Include at least one column.");
+                shapes.Add(shape);
+                schemas.Add(new TableSchema(tn, shape.Columns));
             }
             if (settings.OutputFormat == OutputFormat.Excel && schemas.Any(s => s.Columns.Count > ExcelExportService.ExcelMaxColumns))
                 throw new UserFacingException($"This data has more than {ExcelExportService.ExcelMaxColumns:N0} columns, which is Excel's limit. Choose CSV, or use array handling that creates fewer columns.");
@@ -143,8 +169,12 @@ public sealed class ConversionService
             {
                 var buf = buffers[t];
                 Array.Clear(buf);
-                var pos = posMaps[t];
-                foreach (var kv in row.Cells) buf[pos[kv.Key]] = kv.Value;
+                var shape = shapes[t];
+                foreach (var kv in row.Cells)
+                {
+                    int p = shape.Pos[kv.Key];
+                    if (p >= 0) buf[p] = ColumnShaper.Apply(kv.Value, shape.Masks[kv.Key]);
+                }
                 writer!.WriteRow(t, buf);
                 if (t == 0) rows++;
             }

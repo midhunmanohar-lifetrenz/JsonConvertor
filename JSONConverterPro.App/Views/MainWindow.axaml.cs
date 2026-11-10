@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using JSONConverterPro.Models;
@@ -28,12 +29,13 @@ public partial class MainWindow : Window
 
     private void Hook()
     {
-        if (_vm != null) { _vm.PreviewChanged -= RebuildFileGrid; _vm.PastePreviewChanged -= RebuildPasteGrid; _vm.PropertyChanged -= OnVmChanged; }
+        if (_vm != null) { _vm.PreviewChanged -= RebuildFileGrid; _vm.PastePreviewChanged -= RebuildPasteGrid; _vm.PropertyChanged -= OnVmChanged; _vm.PasteErrorRequested -= JumpToError; }
         _vm = DataContext as MainViewModel;
         if (_vm == null) return;
         _vm.PreviewChanged += RebuildFileGrid;
         _vm.PastePreviewChanged += RebuildPasteGrid;
         _vm.PropertyChanged += OnVmChanged;
+        _vm.PasteErrorRequested += JumpToError;
         UpdateBanner();
     }
 
@@ -72,6 +74,31 @@ public partial class MainWindow : Window
     private void RebuildFileGrid() { if (_vm != null) Rebuild(this.FindControl<DataGrid>("PreviewGrid"), _vm.PreviewColumns, _vm.PreviewRows); }
     private void RebuildPasteGrid() { if (_vm != null) Rebuild(this.FindControl<DataGrid>("PastePreviewGrid"), _vm.PastePreviewColumns, _vm.PastePreviewRows); }
 
+    /// <summary>Moves the editor caret to a syntax error. The parser reports a byte column, so it is converted to a character index.</summary>
+    private void JumpToError(int line, int byteColumn)
+    {
+        var box = this.FindControl<TextBox>("PasteBox");
+        if (box?.Text is not { } text) return;
+        int index = 0, current = 1;
+        while (current < line && index < text.Length)
+        {
+            int nl = text.IndexOf('\n', index);
+            if (nl < 0) { index = text.Length; break; }
+            index = nl + 1; current++;
+        }
+        int bytes = 0;
+        while (index < text.Length && text[index] != '\n' && bytes < byteColumn - 1)
+        {
+            bytes += System.Text.Encoding.UTF8.GetByteCount(text.AsSpan(index, char.IsHighSurrogate(text[index]) && index + 1 < text.Length ? 2 : 1));
+            index += char.IsHighSurrogate(text[index]) ? 2 : 1;
+        }
+        index = Math.Min(index, text.Length);
+        box.Focus();
+        box.SelectionStart = index;
+        box.SelectionEnd = Math.Min(index + 1, text.Length);
+        box.CaretIndex = index;
+    }
+
     // ---- Paste shortcut: Ctrl+V / Cmd+V anywhere (outside a text box) puts the clipboard text into the paste area
 
     private async void OnKeyDown(object? sender, KeyEventArgs e)
@@ -81,7 +108,7 @@ public partial class MainWindow : Window
         if (FocusManager?.GetFocusedElement() is TextBox) return;   // a text box handles its own paste
         e.Handled = true;
         string? text = null;
-        try { if (Clipboard != null) text = await Clipboard.GetTextAsync(); } catch { /* clipboard unavailable */ }
+        try { if (Clipboard != null) text = await Clipboard.TryGetTextAsync(); } catch { /* clipboard unavailable */ }
         if (string.IsNullOrWhiteSpace(text)) { _vm.ShowError("The clipboard doesn't contain any text. Copy some JSON first."); return; }
         _vm.CurrentPage = "Convert";
         _vm.PasteText = text;
@@ -89,7 +116,7 @@ public partial class MainWindow : Window
 
     // ---- Drag and drop
 
-    private static bool HasFiles(DragEventArgs e) => e.Data.Contains(DataFormats.Files);
+    private static bool HasFiles(DragEventArgs e) => e.DataTransfer.Contains(DataFormat.File);
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
@@ -109,13 +136,13 @@ public partial class MainWindow : Window
     {
         OnDragLeave(null, e);
         if (_vm == null) return;
-        var paths = e.Data.GetFiles()?.Select(f => f.TryGetLocalPath()).Where(p => !string.IsNullOrEmpty(p)).Cast<string>().ToList();
+        var paths = e.DataTransfer.TryGetFiles()?.Select(f => f.TryGetLocalPath()).Where(p => !string.IsNullOrEmpty(p)).Cast<string>().ToList();
         e.Handled = true;
         if (paths is not { Count: > 0 }) return;
 
         // One small file dropped on the first screen goes straight into the paste area; everything else joins the file list.
         if (_vm.IsConvertPage && paths.Count == 1 && new FileInfo(paths[0]).Length <= MaxEditorFileBytes
-            && (paths[0].EndsWith(".json", StringComparison.OrdinalIgnoreCase) || paths[0].EndsWith(".txt", StringComparison.OrdinalIgnoreCase)))
+            && JSONConverterPro.Core.Services.FileService.SupportedExtensions.Contains(Path.GetExtension(paths[0]), StringComparer.OrdinalIgnoreCase))
         {
             await _vm.LoadFileIntoEditorAsync(paths[0]);
             return;

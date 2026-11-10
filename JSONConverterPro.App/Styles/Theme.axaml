@@ -1,24 +1,70 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Styles.Resources>
-    <SolidColorBrush x:Key="SideBrush" Color="#0B3C49" />
-    <SolidColorBrush x:Key="SideTextBrush" Color="#9CC7CF" />
-    <SolidColorBrush x:Key="SideActiveBrush" Color="#15546A" />
-    <SolidColorBrush x:Key="AccentBrush" Color="#FF6B5B" />
-    <SolidColorBrush x:Key="AccentHoverBrush" Color="#F25A49" />
-    <SolidColorBrush x:Key="AccentPressedBrush" Color="#DB4A3A" />
-    <SolidColorBrush x:Key="PageBrush" Color="#F1F7F8" />
-    <SolidColorBrush x:Key="InkBrush" Color="#0B2A33" />
-    <SolidColorBrush x:Key="MutedBrush" Color="#6B8E96" />
-    <SolidColorBrush x:Key="ChipBrush" Color="#DDEEF0" />
-    <SolidColorBrush x:Key="LineBrush" Color="#C5DDE1" />
-    <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF" />
-    <SolidColorBrush x:Key="OkBrush" Color="#11704A" />
-    <SolidColorBrush x:Key="OkBgBrush" Color="#DDF3E8" />
-    <SolidColorBrush x:Key="WarnBrush" Color="#8A5A00" />
-    <SolidColorBrush x:Key="WarnBgBrush" Color="#FFF1D6" />
-    <SolidColorBrush x:Key="ErrBrush" Color="#B3261E" />
-    <SolidColorBrush x:Key="ErrBgBrush" Color="#FDE8E6" />
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="SideBrush" Color="#0B3C49" />
+          <SolidColorBrush x:Key="SideHoverBrush" Color="#15546A" />
+          <SolidColorBrush x:Key="PageBrush" Color="#F1F7F8" />
+          <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="InkBrush" Color="#0B2A33" />
+          <SolidColorBrush x:Key="MutedBrush" Color="#5F838C" />
+          <SolidColorBrush x:Key="ChipBrush" Color="#DDEEF0" />
+          <SolidColorBrush x:Key="ChipHoverBrush" Color="#CBE3E7" />
+          <SolidColorBrush x:Key="LineBrush" Color="#C5DDE1" />
+          <SolidColorBrush x:Key="GridLineBrush" Color="#E4F0F2" />
+          <SolidColorBrush x:Key="RowHoverBrush" Color="#F1F7F8" />
+          <SolidColorBrush x:Key="RowSelectedBrush" Color="#DDEEF0" />
+          <SolidColorBrush x:Key="TabHoverBrush" Color="#E8F2F4" />
+          <SolidColorBrush x:Key="DropHotBrush" Color="#FFF0EE" />
+          <SolidColorBrush x:Key="OkBrush" Color="#11704A" />
+          <SolidColorBrush x:Key="OkBgBrush" Color="#DDF3E8" />
+          <SolidColorBrush x:Key="WarnBrush" Color="#8A5A00" />
+          <SolidColorBrush x:Key="WarnBgBrush" Color="#FFF1D6" />
+          <SolidColorBrush x:Key="ErrBrush" Color="#B3261E" />
+          <SolidColorBrush x:Key="ErrBgBrush" Color="#FDE8E6" />
+          <SolidColorBrush x:Key="InfoBrush" Color="#1A4FA3" />
+          <SolidColorBrush x:Key="InfoBgBrush" Color="#DCEBFF" />
+          <SolidColorBrush x:Key="NeutralBrush" Color="#555555" />
+          <SolidColorBrush x:Key="NeutralBgBrush" Color="#ECECEC" />
+        </ResourceDictionary>
+
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="SideBrush" Color="#1F6F86" />
+          <SolidColorBrush x:Key="SideHoverBrush" Color="#2A8AA5" />
+          <SolidColorBrush x:Key="PageBrush" Color="#0D1A1F" />
+          <SolidColorBrush x:Key="SurfaceBrush" Color="#11222A" />
+          <SolidColorBrush x:Key="CardBrush" Color="#14262D" />
+          <SolidColorBrush x:Key="InkBrush" Color="#E4F0F3" />
+          <SolidColorBrush x:Key="MutedBrush" Color="#8FB1B9" />
+          <SolidColorBrush x:Key="ChipBrush" Color="#1E3A44" />
+          <SolidColorBrush x:Key="ChipHoverBrush" Color="#28505C" />
+          <SolidColorBrush x:Key="LineBrush" Color="#2B4852" />
+          <SolidColorBrush x:Key="GridLineBrush" Color="#223A43" />
+          <SolidColorBrush x:Key="RowHoverBrush" Color="#1A3139" />
+          <SolidColorBrush x:Key="RowSelectedBrush" Color="#214550" />
+          <SolidColorBrush x:Key="TabHoverBrush" Color="#1A3139" />
+          <SolidColorBrush x:Key="DropHotBrush" Color="#3A2220" />
+          <SolidColorBrush x:Key="OkBrush" Color="#6FD3A5" />
+          <SolidColorBrush x:Key="OkBgBrush" Color="#123D2B" />
+          <SolidColorBrush x:Key="WarnBrush" Color="#F0C36B" />
+          <SolidColorBrush x:Key="WarnBgBrush" Color="#3F3212" />
+          <SolidColorBrush x:Key="ErrBrush" Color="#FF8A80" />
+          <SolidColorBrush x:Key="ErrBgBrush" Color="#4A1F1C" />
+          <SolidColorBrush x:Key="InfoBrush" Color="#8FB8F5" />
+          <SolidColorBrush x:Key="InfoBgBrush" Color="#1B3350" />
+          <SolidColorBrush x:Key="NeutralBrush" Color="#B8C4C8" />
+          <SolidColorBrush x:Key="NeutralBgBrush" Color="#2A383D" />
+        </ResourceDictionary>
+
+      </ResourceDictionary.ThemeDictionaries>
+      <SolidColorBrush x:Key="AccentBrush" Color="#FF6B5B" />
+      <SolidColorBrush x:Key="AccentHoverBrush" Color="#F25A49" />
+      <SolidColorBrush x:Key="AccentPressedBrush" Color="#DB4A3A" />
+    </ResourceDictionary>
   </Styles.Resources>
 
   <Style Selector="Window"><Setter Property="Background" Value="{DynamicResource PageBrush}" /><Setter Property="FontSize" Value="13" /></Style>
@@ -35,6 +81,7 @@
     <Setter Property="CornerRadius" Value="16" />
     <Setter Property="Padding" Value="16" />
   </Style>
+  <Style Selector="Border.card.hot"><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" /><Setter Property="BorderThickness" Value="2" /></Style>
   <Style Selector="Border.drop">
     <Setter Property="Background" Value="{DynamicResource CardBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
@@ -42,10 +89,22 @@
     <Setter Property="CornerRadius" Value="16" />
     <Setter Property="Padding" Value="26" />
   </Style>
-  <Style Selector="Border.drop.hot"><Setter Property="Background" Value="#FFF0EE" /></Style>
+  <Style Selector="Border.drop.hot"><Setter Property="Background" Value="{DynamicResource DropHotBrush}" /></Style>
   <Style Selector="Border.row"><Setter Property="CornerRadius" Value="10" /><Setter Property="Padding" Value="12,10" /><Setter Property="Margin" Value="0,2" /><Setter Property="Background" Value="Transparent" /></Style>
-  <Style Selector="Border.row:pointerover"><Setter Property="Background" Value="#F1F7F8" /></Style>
-  <Style Selector="Border.row.selected"><Setter Property="Background" Value="#DDEEF0" /></Style>
+  <Style Selector="Border.row:pointerover"><Setter Property="Background" Value="{DynamicResource RowHoverBrush}" /></Style>
+  <Style Selector="Border.row.selected"><Setter Property="Background" Value="{DynamicResource RowSelectedBrush}" /></Style>
+
+  <Style Selector="Border.banner"><Setter Property="Background" Value="{DynamicResource OkBgBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource OkBrush}" /></Style>
+  <Style Selector="Border.banner.err"><Setter Property="Background" Value="{DynamicResource ErrBgBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource ErrBrush}" /></Style>
+  <Style Selector="Border.banner.warn"><Setter Property="Background" Value="{DynamicResource WarnBgBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource WarnBrush}" /></Style>
+
+  <Style Selector="Border.badge"><Setter Property="Background" Value="{DynamicResource ChipBrush}" /><Setter Property="CornerRadius" Value="8" /><Setter Property="Padding" Value="10,4" /></Style>
+  <Style Selector="Border.badge.ok"><Setter Property="Background" Value="{DynamicResource OkBgBrush}" /></Style>
+  <Style Selector="Border.badge.err"><Setter Property="Background" Value="{DynamicResource ErrBgBrush}" /></Style>
+  <Style Selector="Border.badge.warn"><Setter Property="Background" Value="{DynamicResource WarnBgBrush}" /></Style>
+  <Style Selector="Border.badge.ok TextBlock"><Setter Property="Foreground" Value="{DynamicResource OkBrush}" /></Style>
+  <Style Selector="Border.badge.err TextBlock"><Setter Property="Foreground" Value="{DynamicResource ErrBrush}" /></Style>
+  <Style Selector="Border.badge.warn TextBlock"><Setter Property="Foreground" Value="{DynamicResource WarnBrush}" /></Style>
 
   <Style Selector="Button.primary">
     <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
@@ -57,13 +116,22 @@
   <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource AccentHoverBrush}" /><Setter Property="Foreground" Value="White" /></Style>
   <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource AccentPressedBrush}" /><Setter Property="Foreground" Value="White" /></Style>
 
+  <Style Selector="Button.dark">
+    <Setter Property="Background" Value="{DynamicResource SideBrush}" />
+    <Setter Property="Foreground" Value="White" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Padding" Value="22,10" />
+    <Setter Property="CornerRadius" Value="10" />
+  </Style>
+  <Style Selector="Button.dark:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource SideHoverBrush}" /><Setter Property="Foreground" Value="White" /></Style>
+
   <Style Selector="Button.soft">
     <Setter Property="Background" Value="{DynamicResource ChipBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
     <Setter Property="Padding" Value="14,8" />
     <Setter Property="CornerRadius" Value="10" />
   </Style>
-  <Style Selector="Button.soft:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#CBE3E7" /><Setter Property="Foreground" Value="{DynamicResource InkBrush}" /></Style>
+  <Style Selector="Button.soft:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource ChipHoverBrush}" /><Setter Property="Foreground" Value="{DynamicResource InkBrush}" /></Style>
 
   <Style Selector="Button.icon">
     <Setter Property="Background" Value="Transparent" />
@@ -71,38 +139,8 @@
     <Setter Property="Padding" Value="8,4" />
     <Setter Property="CornerRadius" Value="8" />
   </Style>
-  <Style Selector="Button.icon:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#FDE8E6" /><Setter Property="Foreground" Value="#B3261E" /></Style>
+  <Style Selector="Button.icon:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource ChipBrush}" /><Setter Property="Foreground" Value="{DynamicResource InkBrush}" /></Style>
 
-  <Style Selector="Button.nav">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="Foreground" Value="{DynamicResource SideTextBrush}" />
-    <Setter Property="HorizontalAlignment" Value="Stretch" />
-    <Setter Property="HorizontalContentAlignment" Value="Left" />
-    <Setter Property="Padding" Value="14,10" />
-    <Setter Property="CornerRadius" Value="10" />
-    <Setter Property="FontSize" Value="14" />
-  </Style>
-  <Style Selector="Button.nav:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#114759" /><Setter Property="Foreground" Value="White" /></Style>
-  <Style Selector="Button.nav.active /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource SideActiveBrush}" /><Setter Property="Foreground" Value="White" /></Style>
-
-  <Style Selector="RadioButton.seg">
-    <Setter Property="Padding" Value="14,6" />
-    <Setter Property="CornerRadius" Value="8" />
-  </Style>
-
-  <Style Selector="DataGrid">
-    <Setter Property="Background" Value="White" />
-    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="12" />
-    <Setter Property="GridLinesVisibility" Value="All" />
-    <Setter Property="HorizontalGridLinesBrush" Value="#E4F0F2" />
-    <Setter Property="VerticalGridLinesBrush" Value="#E4F0F2" />
-  </Style>
-  <Style Selector="DataGridColumnHeader"><Setter Property="Background" Value="#DDEEF0" /><Setter Property="Foreground" Value="{DynamicResource InkBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></Style>
-  <Style Selector="Border.banner"><Setter Property="Background" Value="{DynamicResource OkBgBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource OkBrush}" /></Style>
-  <Style Selector="Border.banner.err"><Setter Property="Background" Value="{DynamicResource ErrBgBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource ErrBrush}" /></Style>
-  <Style Selector="Border.banner.warn"><Setter Property="Background" Value="{DynamicResource WarnBgBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource WarnBrush}" /></Style>
   <Style Selector="Button.tab">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
@@ -110,7 +148,7 @@
     <Setter Property="CornerRadius" Value="10" />
     <Setter Property="FontSize" Value="13" />
   </Style>
-  <Style Selector="Button.tab:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#E8F2F4" /><Setter Property="Foreground" Value="{DynamicResource InkBrush}" /></Style>
+  <Style Selector="Button.tab:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource TabHoverBrush}" /><Setter Property="Foreground" Value="{DynamicResource InkBrush}" /></Style>
   <Style Selector="Button.tab.active /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource SideBrush}" /><Setter Property="Foreground" Value="White" /></Style>
 
   <Style Selector="Button.link">
@@ -121,25 +159,16 @@
   </Style>
   <Style Selector="Button.link:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="Transparent" /><Setter Property="Foreground" Value="{DynamicResource AccentPressedBrush}" /></Style>
 
-  <Style Selector="Button.dark">
-    <Setter Property="Background" Value="{DynamicResource SideBrush}" />
-    <Setter Property="Foreground" Value="White" />
-    <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Padding" Value="22,10" />
-    <Setter Property="CornerRadius" Value="10" />
-  </Style>
-  <Style Selector="Button.dark:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#15546A" /><Setter Property="Foreground" Value="White" /></Style>
+  <Style Selector="RadioButton.seg"><Setter Property="Padding" Value="14,6" /><Setter Property="CornerRadius" Value="8" /></Style>
 
-  <Style Selector="Border.badge">
-    <Setter Property="Background" Value="#DDEEF0" />
-    <Setter Property="CornerRadius" Value="8" />
-    <Setter Property="Padding" Value="10,4" />
+  <Style Selector="DataGrid">
+    <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="GridLinesVisibility" Value="All" />
+    <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource GridLineBrush}" />
+    <Setter Property="VerticalGridLinesBrush" Value="{DynamicResource GridLineBrush}" />
   </Style>
-  <Style Selector="Border.badge.ok"><Setter Property="Background" Value="{DynamicResource OkBgBrush}" /></Style>
-  <Style Selector="Border.badge.err"><Setter Property="Background" Value="{DynamicResource ErrBgBrush}" /></Style>
-  <Style Selector="Border.badge.warn"><Setter Property="Background" Value="{DynamicResource WarnBgBrush}" /></Style>
-  <Style Selector="Border.badge.ok TextBlock"><Setter Property="Foreground" Value="{DynamicResource OkBrush}" /></Style>
-  <Style Selector="Border.badge.err TextBlock"><Setter Property="Foreground" Value="{DynamicResource ErrBrush}" /></Style>
-  <Style Selector="Border.badge.warn TextBlock"><Setter Property="Foreground" Value="{DynamicResource WarnBrush}" /></Style>
-  <Style Selector="Border.card.hot"><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" /><Setter Property="BorderThickness" Value="2" /></Style>
+  <Style Selector="DataGridColumnHeader"><Setter Property="Background" Value="{DynamicResource ChipBrush}" /><Setter Property="Foreground" Value="{DynamicResource InkBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></Style>
 </Styles>

@@ -6,6 +6,11 @@ using static JSONConverterPro.Tests.Harness;
 
 namespace JSONConverterPro.Tests;
 
+/// <summary>Memory is measured process-wide, so these tests must not share the process with other running tests.</summary>
+[CollectionDefinition("Serial", DisableParallelization = true)]
+public class SerialCollection { }
+
+[Collection("Serial")]
 public class LargeFileTests : IDisposable
 {
     private readonly Harness h = new();

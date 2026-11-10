@@ -216,7 +216,9 @@ internal static class JsonErrors
 {
     public static UserFacingException Wrap(JsonException ex)
     {
-        string where = ex.LineNumber.HasValue ? $" near line {ex.LineNumber + 1}, position {(ex.BytePositionInLine ?? 0) + 1}" : "";
-        return new UserFacingException($"This file is not valid JSON{where}. Check for missing commas, quotes or brackets.", ex);
+        int? line = ex.LineNumber.HasValue ? (int)ex.LineNumber.Value + 1 : null;
+        int? col = ex.LineNumber.HasValue ? (int)(ex.BytePositionInLine ?? 0) + 1 : null;
+        string where = line.HasValue ? $" near line {line}, position {col}" : "";
+        return new UserFacingException($"This file is not valid JSON{where}. Check for missing commas, quotes or brackets.", ex, line, col);
     }
 }

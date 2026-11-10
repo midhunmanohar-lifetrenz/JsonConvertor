@@ -13,7 +13,7 @@
   <Grid RowDefinitions="Auto,Auto,*">
 
     <!-- Top bar -->
-    <Border Grid.Row="0" Background="White" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="20,10">
+    <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="20,10">
       <Grid ColumnDefinitions="Auto,*,Auto">
         <StackPanel Orientation="Horizontal" Spacing="10">
           <Image Source="avares://JSONConverterPro/Resources/AppIcon.png" Width="32" Height="32" />
@@ -52,7 +52,10 @@
           <Grid RowDefinitions="Auto,*">
             <Grid ColumnDefinitions="*,Auto" Margin="14,8,10,0">
               <TextBlock Text="Paste or type JSON here" Classes="muted" VerticalAlignment="Center" />
-              <Button Grid.Column="1" Classes="icon" Content="Clear" Command="{Binding ClearPasteCommand}" />
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+                <Button Classes="icon" Content="Format" Command="{Binding FormatPasteCommand}" ToolTip.Tip="Pretty-print the JSON" />
+                <Button Classes="icon" Content="Clear" Command="{Binding ClearPasteCommand}" />
+              </StackPanel>
             </Grid>
             <TextBox x:Name="PasteBox" Grid.Row="1" Text="{Binding PasteText}" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap"
                      Watermark='{}{ "paste": "your JSON here" }   (Ctrl+V or ⌘+V)'
@@ -63,9 +66,12 @@
 
         <!-- Status row -->
         <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto,Auto" Margin="0,10,0,10">
-          <Border Classes="badge" Classes.ok="{Binding PasteIsOk}" Classes.err="{Binding PasteIsError}" Classes.warn="{Binding PasteIsWarn}" VerticalAlignment="Center">
-            <TextBlock Text="{Binding PasteStatusText}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="640" />
-          </Border>
+          <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Border Classes="badge" Classes.ok="{Binding PasteIsOk}" Classes.err="{Binding PasteIsError}" Classes.warn="{Binding PasteIsWarn}" VerticalAlignment="Center">
+              <TextBlock Text="{Binding PasteStatusText}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="620" />
+            </Border>
+            <Button Classes="link" Content="Go to error" Command="{Binding GoToErrorCommand}" IsVisible="{Binding HasErrorLocation}" />
+          </StackPanel>
           <TextBlock Grid.Column="1" Text="{Binding PasteWarnings}" Classes="muted" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
           <TextBlock Grid.Column="2" Text="Data array" Classes="muted" VerticalAlignment="Center" Margin="0,0,8,0" IsVisible="{Binding ShowPasteCandidates}" />
           <ComboBox Grid.Column="3" ItemsSource="{Binding PasteCandidates}" SelectedItem="{Binding SelectedPasteCandidate}" MinWidth="260" IsVisible="{Binding ShowPasteCandidates}" Margin="0,0,10,0">
@@ -76,12 +82,63 @@
           <Button Grid.Column="4" Classes="soft" Content="Options" Command="{Binding NavigateCommand}" CommandParameter="Settings" />
         </Grid>
 
-        <!-- Live preview -->
-        <Grid Grid.Row="2">
-          <DataGrid x:Name="PastePreviewGrid" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="False"
-                    HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" IsVisible="{Binding PasteHasPreview}" />
-          <Border Classes="card" IsVisible="{Binding !PasteHasPreview}">
-            <TextBlock Classes="muted" Text="The first 10 records appear here as soon as the JSON is valid." HorizontalAlignment="Center" VerticalAlignment="Center" />
+        <!-- Live preview / Columns -->
+        <Grid Grid.Row="2" RowDefinitions="Auto,*">
+          <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" Margin="0,0,0,8">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+              <Button Classes="tab" Classes.active="{Binding IsPreviewTab}" Content="Preview" Command="{Binding ShowPreviewTabCommand}" />
+              <Button Classes="tab" Classes.active="{Binding IsColumnsTab}" Content="{Binding ColumnsTabTitle}" Command="{Binding ShowColumnsTabCommand}" />
+            </StackPanel>
+            <TextBlock Grid.Column="1" Text="{Binding PasteRowsText}" Classes="muted" VerticalAlignment="Center" Margin="12,0" IsVisible="{Binding IsPreviewTab}" />
+            <TextBox Grid.Column="2" Text="{Binding PasteSearch}" Watermark="Search rows" Width="200" Margin="0,0,8,0" IsVisible="{Binding IsPreviewTab}" />
+            <ComboBox Grid.Column="3" SelectedIndex="{Binding PasteRowsIndex}" Width="150" IsVisible="{Binding IsPreviewTab}" ToolTip.Tip="How many records to load into the preview">
+              <ComboBoxItem Content="First 10 records" /><ComboBoxItem Content="First 50 records" /><ComboBoxItem Content="First 200 records" /><ComboBoxItem Content="First 1,000 records" />
+            </ComboBox>
+          </Grid>
+
+          <Grid Grid.Row="1" IsVisible="{Binding IsPreviewTab}">
+            <DataGrid x:Name="PastePreviewGrid" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="False"
+                      HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" IsVisible="{Binding PasteHasPreview}" />
+            <Border Classes="card" IsVisible="{Binding !PasteHasPreview}">
+              <TextBlock Classes="muted" Text="Records appear here as soon as the JSON is valid." HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+          </Grid>
+
+          <Border Grid.Row="1" Classes="card" Padding="0" IsVisible="{Binding IsColumnsTab}">
+            <Grid RowDefinitions="Auto,Auto,*">
+              <Grid ColumnDefinitions="*,Auto,Auto" Margin="14,10,14,6">
+                <TextBlock Text="{Binding RulesSummary}" Classes="muted" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="soft" Content="Include all" Command="{Binding IncludeAllColumnsCommand}" Margin="8,0,0,0" />
+                <Button Grid.Column="2" Classes="soft" Content="Reset rules" Command="{Binding ResetRulesCommand}" Margin="8,0,0,0" />
+              </Grid>
+              <Grid Grid.Row="1" ColumnDefinitions="56,2*,80,64,2*,170,130" Margin="14,4,14,6">
+                <TextBlock Text="Export" Classes="muted" FontSize="12" /><TextBlock Grid.Column="1" Text="Column (from the JSON)" Classes="muted" FontSize="12" />
+                <TextBlock Grid.Column="2" Text="Type" Classes="muted" FontSize="12" /><TextBlock Grid.Column="3" Text="Filled" Classes="muted" FontSize="12" />
+                <TextBlock Grid.Column="4" Text="Sample" Classes="muted" FontSize="12" /><TextBlock Grid.Column="5" Text="Rename to" Classes="muted" FontSize="12" />
+                <TextBlock Grid.Column="6" Text="Mask" Classes="muted" FontSize="12" />
+              </Grid>
+              <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding ColumnRows}" Margin="14,0,14,10">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="m:ColumnRuleVm">
+                      <Border Classes="row" Padding="0,4">
+                        <Grid ColumnDefinitions="56,2*,80,64,2*,170,130">
+                          <CheckBox IsChecked="{Binding Include}" VerticalAlignment="Center" ToolTip.Tip="Include this column in the export" />
+                          <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="{Binding Indent}" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                          <Border Grid.Column="2" Classes="badge" HorizontalAlignment="Left" VerticalAlignment="Center" Padding="8,2"><TextBlock Text="{Binding Type}" FontSize="11" /></Border>
+                          <TextBlock Grid.Column="3" Text="{Binding FilledText}" Classes="muted" VerticalAlignment="Center" />
+                          <TextBlock Grid.Column="4" Text="{Binding Sample}" Classes="muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,10,0" ToolTip.Tip="{Binding Sample}" />
+                          <TextBox Grid.Column="5" Text="{Binding RenameTo}" Watermark="Keep name" Margin="0,0,8,0" />
+                          <ComboBox Grid.Column="6" SelectedIndex="{Binding MaskIndex}" HorizontalAlignment="Stretch" ToolTip.Tip="Redact replaces values with [REDACTED]; Hash replaces them with a one-way code (same value, same code)">
+                            <ComboBoxItem Content="No mask" /><ComboBoxItem Content="Redact" /><ComboBoxItem Content="Hash" />
+                          </ComboBox>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </Grid>
           </Border>
         </Grid>
 
@@ -187,13 +244,32 @@
       <ScrollViewer IsVisible="{Binding IsSettingsPage}" VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="24" Spacing="16" MaxWidth="820" HorizontalAlignment="Left">
           <TextBlock Classes="h1" Text="Conversion settings" />
-          <TextBlock Classes="muted" Text="These apply to the paste area and to files. Changes update the previews right away." />
+          <TextBlock Classes="muted" Text="These apply to the paste area and to files. Changes update the previews right away and are remembered." />
+          <Border Classes="card">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="h2" Text="Presets" />
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="Save the current options and column rules (include, rename, mask) under a name, and reuse them for recurring feeds." />
+              <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasPresets}">
+                <ComboBox ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}" Width="260" PlaceholderText="Choose a preset" />
+                <Button Classes="primary" Content="Apply" Command="{Binding ApplyPresetCommand}" Padding="16,8" />
+                <Button Classes="soft" Content="Delete" Command="{Binding DeletePresetCommand}" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBox Text="{Binding PresetName}" Watermark="Preset name, e.g. LIS results (masked)" Width="260" />
+                <Button Classes="soft" Content="Save current as preset" Command="{Binding SavePresetCommand}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
           <Border Classes="card">
             <StackPanel Spacing="12">
               <TextBlock Classes="h2" Text="Excel and CSV options" />
               <StackPanel Spacing="4"><TextBlock Classes="muted" Text="Sheet name (Excel)" /><TextBox Text="{Binding SheetName}" Width="260" HorizontalAlignment="Left" MaxLength="31" /></StackPanel>
               <StackPanel Spacing="4"><TextBlock Classes="muted" Text="CSV delimiter" />
                 <ComboBox SelectedIndex="{Binding DelimiterIndex}" Width="260"><ComboBoxItem Content="Comma ( , )" /><ComboBoxItem Content="Semicolon ( ; )" /><ComboBoxItem Content="Tab" /></ComboBox></StackPanel>
+              <StackPanel Spacing="4"><TextBlock Classes="muted" Text="CSV encoding" />
+                <ComboBox SelectedIndex="{Binding CsvEncodingIndex}" Width="260"><ComboBoxItem Content="UTF-8 with BOM (best for Excel)" /><ComboBoxItem Content="UTF-8 without BOM" /><ComboBoxItem Content="UTF-16 (Unicode)" /></ComboBox></StackPanel>
+              <StackPanel Spacing="4"><TextBlock Classes="muted" Text="Separator used when array values are combined into one cell" />
+                <TextBox Text="{Binding ArraySeparator}" Width="120" HorizontalAlignment="Left" /></StackPanel>
               <CheckBox IsChecked="{Binding ProtectCsv}" Content="Protect CSV from formula injection (adds a ' before text starting with = + - @)" />
               <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" Text="Recommended when the data comes from outside your organisation. Plain numbers are never changed, and Excel files are always safe." />
             </StackPanel>
@@ -224,6 +300,22 @@
                 <ComboBox SelectedIndex="{Binding NullIndex}" Width="380"><ComboBoxItem Content="Leave blank" /><ComboBoxItem Content="Write the word null (missing fields stay blank)" /></ComboBox></StackPanel>
             </StackPanel>
           </Border>
+          <Border Classes="card">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="h2" Text="Appearance" />
+              <StackPanel Orientation="Horizontal" Spacing="10"><TextBlock Text="Theme" Classes="muted" VerticalAlignment="Center" />
+                <ComboBox SelectedIndex="{Binding ThemeIndex}" Width="200"><ComboBoxItem Content="Match system" /><ComboBoxItem Content="Light" /><ComboBoxItem Content="Dark" /></ComboBox></StackPanel>
+            </StackPanel>
+          </Border>
+          <Border Classes="card">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="h2" Text="About" />
+              <TextBlock><Run Text="JSON Converter Pro " /><Run Text="{Binding Version}" /></TextBlock>
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="Converts JSON, JSON Lines and TXT files into Excel and CSV on your computer. Your data never leaves this device: there is no upload, account or telemetry." />
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="Built with .NET, Avalonia UI, ClosedXML, SkiaSharp, CommunityToolkit.Mvvm and Microsoft.Extensions (all MIT licensed). See THIRD-PARTY-NOTICES.txt." />
+              <Button Classes="soft" Content="Open log folder" Command="{Binding OpenLogFolderCommand}" HorizontalAlignment="Left" />
+            </StackPanel>
+          </Border>
         </StackPanel>
       </ScrollViewer>
 
@@ -248,7 +340,7 @@
       </Grid>
 
       <!-- Files bar (batch convert) -->
-      <Border VerticalAlignment="Bottom" IsVisible="{Binding ShowFilesBar}" Background="White" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="24,12">
+      <Border VerticalAlignment="Bottom" IsVisible="{Binding ShowFilesBar}" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="24,12">
         <Grid ColumnDefinitions="Auto,*,Auto">
           <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
             <RadioButton GroupName="fmtB" Classes="seg" Content="Excel" IsChecked="{Binding IsExcel}" />

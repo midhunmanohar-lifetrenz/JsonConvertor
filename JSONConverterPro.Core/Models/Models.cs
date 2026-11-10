@@ -1,3 +1,5 @@
+using JSONConverterPro.Core.Helpers;
+
 namespace JSONConverterPro.Core.Models;
 
 public enum OutputFormat { Excel, Csv }
@@ -5,6 +7,7 @@ public enum ArrayHandling { Join, JsonText, ExpandRows, SeparateSheets }
 public enum ColumnOrdering { Smart, Alphabetical, Original, Custom }
 public enum NullHandling { Blank, LiteralNull }
 public enum CsvDelimiter { Comma, Semicolon, Tab }
+public enum CsvEncoding { Utf8Bom, Utf8, Utf16 }
 
 /// <summary>User-facing conversion options. Cloned per conversion so UI edits never leak into a running job.</summary>
 public sealed class ConversionSettings
@@ -24,6 +27,9 @@ public sealed class ConversionSettings
     /// can't run it as a formula. Plain numbers such as "-5.2" are left alone.
     /// </summary>
     public bool ProtectCsvFormulas { get; set; } = true;
+    public CsvEncoding CsvEncoding { get; set; } = CsvEncoding.Utf8Bom;
+    /// <summary>Per-column include / rename / mask rules, matched by flattened column name (all tables).</summary>
+    public List<ColumnRule> ColumnRules { get; set; } = new();
     public string ArrayJoinSeparator { get; set; } = "; ";
     /// <summary>Data rows per worksheet (Excel limit is 1,048,576 including the header row).</summary>
     public int MaxRowsPerSheet { get; set; } = 1_048_575;
@@ -41,6 +47,7 @@ public sealed class ConversionSettings
     {
         var c = (ConversionSettings)MemberwiseClone();
         c.CustomColumnOrder = new List<string>(CustomColumnOrder);
+        c.ColumnRules = ColumnRules.Select(r => new ColumnRule { Name = r.Name, Include = r.Include, RenameTo = r.RenameTo, Mask = r.Mask }).ToList();
         return c;
     }
 }
@@ -138,8 +145,16 @@ public sealed class ConversionResult
 /// <summary>Exception whose message is safe to show to end users.</summary>
 public class UserFacingException : Exception
 {
-    public UserFacingException(string message, Exception? inner = null) : base(message, inner) { }
+    public UserFacingException(string message, Exception? inner = null, int? line = null, int? column = null) : base(message, inner)
+    {
+        Line = line; Column = column;
+    }
+    /// <summary>1-based position of a syntax error, when known.</summary>
+    public int? Line { get; }
+    public int? Column { get; }
 }
+
+public sealed record ColumnInfo(string Name, int Depth, string Type, double FilledPercent, string Sample, long Nulls);
 
 public sealed class WarningCollector
 {

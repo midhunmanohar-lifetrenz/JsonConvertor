@@ -10,6 +10,13 @@
     <ApplicationIcon>Resources\AppIcon.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Product>JSON Converter Pro</Product>
+    <AssemblyTitle>JSON Converter Pro</AssemblyTitle>
+    <Description>Converts JSON, JSON Lines and TXT files into Excel and CSV.</Description>
+    <Company>Lifetrenz</Company>
+    <Copyright>Copyright © 2026 Lifetrenz</Copyright>
     <InvariantGlobalization>true</InvariantGlobalization>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>

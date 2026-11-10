@@ -239,6 +239,118 @@ public class UiTests
         Directory.Delete(dir, true);
     }
 
+    // ------------------------------------------------------------------ columns, search, presets, editor tools
+
+    [AvaloniaFact]
+    public void ColumnsView_Search_Presets_Format_ErrorJump_JsonLines()
+    {
+        var (win, vm, dlg) = Create();
+        SetPaste(vm, Hospital);
+        Assert.True(vm.ColumnRows.Count >= 7);
+        Assert.Equal("number", vm.ColumnRows.First(c => c.Name == "patientId").Type);
+
+        // Rules: mask, exclude, rename -> preview reflects them
+        vm.ColumnRows.First(c => c.Name == "patientName").MaskIndex = 1;
+        vm.ColumnRows.First(c => c.Name == "mrn").Include = false;
+        vm.ColumnRows.First(c => c.Name == "demographics.age").RenameTo = "Age";
+        Spin(1000);
+        var cols = vm.PastePreviewColumns.ToList();
+        Assert.DoesNotContain("mrn", cols);
+        Assert.Contains("Age", cols);
+        Assert.Equal("[REDACTED]", vm.PastePreviewRows[0][cols.IndexOf("patientName")]);
+        Assert.Contains("1 excluded", vm.RulesSummary);
+        Assert.Contains("1 masked", vm.RulesSummary);
+        vm.PasteTab = "Columns";
+        Shot(win, "14-columns");
+        vm.PasteTab = "Preview";
+
+        // Downloads use the same rules
+        string dir = Path.Combine(Path.GetTempPath(), "jcp-ui-" + Guid.NewGuid().ToString("N")[..6]);
+        Directory.CreateDirectory(dir);
+        dlg.SavePaths.Enqueue(Path.Combine(dir, "masked.csv"));
+        Pump(vm.DownloadCsvCommand.ExecuteAsync(null));
+        var rows = Harness.ReadCsv(Path.Combine(dir, "masked.csv"));
+        Assert.DoesNotContain("mrn", rows[0]);
+        Assert.Contains("Age", rows[0]);
+        Assert.Equal("[REDACTED]", rows[1][rows[0].IndexOf("patientName")]);
+        Assert.DoesNotContain("John", File.ReadAllText(Path.Combine(dir, "masked.csv")));
+
+        // Search filters the preview rows
+        vm.PasteSearch = "Zoë";
+        Assert.Empty(vm.PastePreviewRows);                 // the name is redacted, so it can't be found
+        vm.PasteSearch = "V003";
+        Assert.Single(vm.PastePreviewRows);
+        Assert.Contains("1 of 2", vm.PasteRowsText);
+        vm.PasteSearch = "";
+        Assert.Equal(2, vm.PastePreviewRows.Count);
+
+        // Presets: save, reset, re-apply
+        vm.PresetName = "Masked feed";
+        vm.SavePresetCommand.Execute(null);
+        Assert.Single(vm.Presets);
+        vm.ResetRulesCommand.Execute(null);
+        Spin(1000);
+        Assert.Contains("mrn", vm.PastePreviewColumns);
+        vm.SelectedPreset = vm.Presets[0];
+        vm.ApplyPresetCommand.Execute(null);
+        Spin(1200);
+        Assert.DoesNotContain("mrn", vm.PastePreviewColumns);
+        Assert.Contains("Age", vm.PastePreviewColumns);
+
+        // More preview rows on request
+        string many = "[" + string.Join(",", Enumerable.Range(1, 30).Select(i => $"{{\"id\":{i}}}")) + "]";
+        vm.ResetRulesCommand.Execute(null);
+        SetPaste(vm, many);
+        Assert.Equal(10, vm.PastePreviewRows.Count);
+        vm.PasteRowsIndex = 1;
+        Spin(1000);
+        Assert.Equal(30, vm.PastePreviewRows.Count);
+        vm.PasteRowsIndex = 0;
+
+        // Format pretty-prints and keeps Unicode readable
+        vm.PasteText = "{\"a\":[1,2],\"b\":\"é\",\"c\":1.50}";
+        vm.FormatPasteCommand.Execute(null);
+        Assert.Contains("\n", vm.PasteText);
+        Assert.Contains("é", vm.PasteText);
+        Assert.Contains("1.50", vm.PasteText);             // numbers are written exactly as given
+
+        // Syntax error: line is reported and the caret jumps there
+        SetPaste(vm, "{\n  \"a\": 1,\n  \"b\": ]\n}");
+        Assert.True(vm.HasErrorLocation);
+        Assert.Equal(3, vm.PasteErrorLine);
+        vm.GoToErrorCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        var box = win.FindControl<TextBox>("PasteBox")!;
+        Assert.InRange(box.CaretIndex, 12, 20);            // somewhere on line 3
+        Shot(win, "15-error");
+
+        // JSON Lines pasted directly
+        SetPaste(vm, "{\"a\":1}\n{\"a\":2}\n{\"a\":3}");
+        Assert.True(vm.PasteIsOk, vm.PasteStatusText);
+        Assert.Contains("3 records", vm.PasteStatusText);
+
+        Directory.Delete(dir, true);
+    }
+
+    [AvaloniaFact]
+    public void DarkTheme_AppliesAndIsRemembered()
+    {
+        string state = Path.Combine(Path.GetTempPath(), "jcp-ui-state-" + Guid.NewGuid().ToString("N")[..6]);
+        var (win, vm, _) = Create(state);
+        vm.ThemeIndex = 2;
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(Avalonia.Styling.ThemeVariant.Dark, Application.Current!.ActualThemeVariant);
+        SetPaste(vm, Hospital);
+        Shot(win, "20-dark-convert");
+        vm.PasteTab = "Columns"; Shot(win, "21-dark-columns");
+        vm.CurrentPage = "Settings"; Shot(win, "22-dark-settings");
+        var (_, vm2, _) = Create(state);
+        Assert.Equal(2, vm2.ThemeIndex);
+        vm2.ThemeIndex = 1;
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(Avalonia.Styling.ThemeVariant.Light, Application.Current!.ActualThemeVariant);
+    }
+
     // ------------------------------------------------------------------ privacy and persistence
 
     [AvaloniaFact]

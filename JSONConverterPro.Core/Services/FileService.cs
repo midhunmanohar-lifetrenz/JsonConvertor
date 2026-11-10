@@ -7,7 +7,7 @@ namespace JSONConverterPro.Core.Services;
 /// <summary>File access, validation, output naming and translation of low-level errors into plain-language messages.</summary>
 public sealed class FileService
 {
-    public static readonly string[] SupportedExtensions = { ".json", ".txt" };
+    public static readonly string[] SupportedExtensions = { ".json", ".txt", ".jsonl", ".ndjson" };
 
     public bool IsSupported(string path) =>
         SupportedExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
@@ -15,7 +15,7 @@ public sealed class FileService
     public void ValidateInput(string path)
     {
         if (!File.Exists(path)) throw new UserFacingException("The file could not be found. It may have been moved or deleted.");
-        if (!IsSupported(path)) throw new UserFacingException("This file type is not supported. Choose a .json or .txt file.");
+        if (!IsSupported(path)) throw new UserFacingException("This file type is not supported. Choose a .json, .jsonl or .txt file.");
         if (new FileInfo(path).Length == 0) throw new UserFacingException("This file is empty. Choose a file that contains JSON data.");
     }
 
@@ -37,6 +37,8 @@ public sealed class FileService
                 fs.Position = enc.GetPreamble().Length;
                 return Encoding.CreateTranscodingStream(fs, enc, Encoding.UTF8);
             }
+            // Newline-delimited JSON (one value per line) is read as if it were an array.
+            if (LooksLikeJsonLines(fs)) return new JsonLinesStream(fs);
             return fs;
         }
         catch
@@ -44,6 +46,34 @@ public sealed class FileService
             fs.Dispose();
             throw;
         }
+    }
+
+    /// <summary>Heuristic on the first 128 KB: at least two complete lines that each hold one whole JSON object or array.</summary>
+    internal static bool LooksLikeJsonLines(FileStream fs)
+    {
+        try
+        {
+            var buf = new byte[128 * 1024];
+            int n = fs.Read(buf, 0, buf.Length);
+            fs.Position = 0;
+            int start = n >= 3 && buf[0] == 0xEF && buf[1] == 0xBB && buf[2] == 0xBF ? 3 : 0;
+            string text = Encoding.UTF8.GetString(buf, start, n - start);
+            var lines = text.Split('\n');
+            int complete = fs.Length > n ? lines.Length - 1 : lines.Length;     // the last line may be cut off by the buffer
+            var good = new List<string>();
+            for (int i = 0; i < complete; i++)
+            {
+                string l = lines[i].Trim();
+                if (l.Length == 0) continue;
+                if (!((l[0] == '{' && l[^1] == '}') || (l[0] == '[' && l[^1] == ']'))) return false;
+                good.Add(l);
+                if (good.Count == 2) break;   // later broken lines are reported as errors by the parser, with their line number
+            }
+            if (good.Count < 2) return false;
+            foreach (var l in good) { using var _ = JsonDocument.Parse(l); }
+            return true;
+        }
+        catch { fs.Position = 0; return false; }
     }
 
     public string EnsureOutputDirectory(string dir)

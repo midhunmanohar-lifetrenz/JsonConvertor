@@ -49,9 +49,14 @@ public sealed class CsvExportService
             _w = new StreamWriter[tables.Count];
             for (int i = 0; i < tables.Count; i++)
             {
-                // UTF-8 with BOM so Excel opens non-ASCII text correctly.
+                Encoding enc = s.CsvEncoding switch
+                {
+                    CsvEncoding.Utf8 => new UTF8Encoding(false),
+                    CsvEncoding.Utf16 => new UnicodeEncoding(false, true),   // UTF-16 LE with BOM
+                    _ => new UTF8Encoding(true)                              // default: UTF-8 with BOM so Excel detects it
+                };
                 _w[i] = new StreamWriter(new FileStream(paths[i], FileMode.Create, FileAccess.Write, FileShare.None, 64 * 1024),
-                    new UTF8Encoding(true), 64 * 1024) { NewLine = "\r\n" };
+                    enc, 64 * 1024) { NewLine = "\r\n" };
                 var cols = tables[i].Columns;
                 for (int c = 0; c < cols.Count; c++)
                 {

@@ -7,6 +7,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using JSONConverterPro.Core.Helpers;
 using JSONConverterPro.Models;
 using Microsoft.Extensions.Logging;
 
@@ -40,11 +41,25 @@ public sealed class PersistedSettings
     public int NullIndex { get; set; }
     public int DelimiterIndex { get; set; }
     public string CustomOrderText { get; set; } = "";
+    public string ArraySeparator { get; set; } = "; ";
+    public int CsvEncodingIndex { get; set; }
+    public int ThemeIndex { get; set; }
+    public int PasteRowsIndex { get; set; }
+}
+
+/// <summary>A named bundle of conversion options and column rules for a recurring feed (e.g. "LIS export, masked").</summary>
+public sealed class PresetEntry
+{
+    public string Name { get; set; } = "";
+    public PersistedSettings Settings { get; set; } = new();
+    public List<ColumnRule> Rules { get; set; } = new();
+    public override string ToString() => Name;
 }
 
 public sealed class AppState
 {
     public PersistedSettings Settings { get; set; } = new();
+    public List<PresetEntry> Presets { get; set; } = new();
     public string? LastOutputDirectory { get; set; }
     public List<HistoryEntry> History { get; set; } = new();
 }
@@ -97,7 +112,7 @@ public sealed class DialogService : IDialogService
         {
             Title = "Choose JSON files",
             AllowMultiple = true,
-            FileTypeFilter = new[] { new FilePickerFileType("JSON and text files") { Patterns = new[] { "*.json", "*.txt" } } }
+            FileTypeFilter = new[] { new FilePickerFileType("JSON, JSON Lines and text files") { Patterns = new[] { "*.json", "*.jsonl", "*.ndjson", "*.txt" } } }
         });
         return files.Select(f => f.TryGetLocalPath()).Where(p => p != null).Cast<string>().ToList();
     }
