@@ -193,7 +193,26 @@ public class UiTests
         Assert.True(File.Exists(csv));
         Assert.Contains("नमस्ते;कोच्चि", File.ReadAllText(csv));
         vm.ClearFilesCommand.Execute(null);
-        // window intentionally left open: closing the last window ends the headless session
+
+        // Pasted JSON: valid, invalid, converted, and temp file removed with the entry
+        Pump(vm.AddPastedJsonAsync("""{"status":"ok","data":[{"id":"A1","name":"Zoë","n":{"x":1}},{"id":"A2","name":"Bo"}]}"""));
+        Pump(vm.AddPastedJsonAsync("""[{"id":1},{"id":2,]"""));
+        Settle(vm);
+        Assert.Equal(2, vm.Files.Count);
+        var pasted = vm.Files[0]; var badPaste = vm.Files[1];
+        Assert.Equal("Pasted JSON 1", pasted.Name);
+        Assert.Equal(FileStatus.Ready, pasted.Status);
+        Assert.Equal("2 records", pasted.RecordsText);
+        Assert.Equal(FileStatus.Invalid, badPaste.Status);
+        Assert.Contains("not valid JSON", badPaste.Detail);
+        Assert.True(File.Exists(pasted.Path));
+        vm.RemoveFile(badPaste);
+        Pump(vm.ConvertCommand.ExecuteAsync(null));
+        Assert.True(File.Exists(Path.Combine(outDir, "Pasted JSON 1.csv")));
+        Assert.Contains("A1;Zoë", File.ReadAllText(Path.Combine(outDir, "Pasted JSON 1.csv")).Replace("\r", ""));
+        string tmp = pasted.Path;
+        vm.RemoveFile(pasted);
+        Assert.False(File.Exists(tmp));
         Directory.Delete(outDir, true);
     }
 }

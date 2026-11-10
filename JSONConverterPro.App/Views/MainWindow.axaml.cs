@@ -22,6 +22,7 @@ public partial class MainWindow : Window
         AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
         AddHandler(DragDrop.DropEvent, OnDrop);
         DataContextChanged += (_, _) => Hook();
+        KeyDown += OnKeyDown;
     }
 
     private void Hook()
@@ -66,6 +67,20 @@ public partial class MainWindow : Window
             });
         }
         grid.ItemsSource = _vm.PreviewRows;
+    }
+
+    // ---- Paste shortcut: Ctrl+V / Cmd+V adds JSON from the clipboard unless a text box has focus
+
+    private async void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        bool mod = e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
+        if (!mod || e.Key != Key.V || _vm == null) return;
+        if (FocusManager?.GetFocusedElement() is TextBox) return;
+        e.Handled = true;
+        string? text = null;
+        try { if (Clipboard != null) text = await Clipboard.GetTextAsync(); } catch { /* clipboard unavailable */ }
+        if (string.IsNullOrWhiteSpace(text)) { _vm.ShowError("The clipboard doesn't contain any text. Copy some JSON first."); return; }
+        await _vm.AddPastedJsonAsync(text);
     }
 
     // ---- Drag and drop

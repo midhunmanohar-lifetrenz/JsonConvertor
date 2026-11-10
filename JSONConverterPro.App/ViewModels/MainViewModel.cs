@@ -32,7 +32,49 @@ public partial class MainViewModel : ObservableObject
         string docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
         _outputDirectory = state.State.LastOutputDirectory is { Length: > 0 } d ? d : Path.Combine(docs, "JSON Converter Pro");
         Version = "v" + (Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0");
+        TryCleanPasteDir();
         _loading = false;
+    }
+
+    // ---------------- Pasted JSON
+
+    private int _pasteCounter;
+    private static string PasteDir => Path.Combine(Path.GetTempPath(), "JSONConverterPro", "pasted");
+    private static void TryCleanPasteDir() { try { if (Directory.Exists(PasteDir)) Directory.Delete(PasteDir, true); } catch { /* in use or locked: ignore */ } }
+    private static void TryDeletePasted(FileItem f) { if (f.IsPasted) { try { File.Delete(f.Path); } catch { } } }
+
+    [RelayCommand]
+    private async Task PasteJsonAsync()
+    {
+        var text = await _dialogs.PasteJsonAsync();
+        if (!string.IsNullOrWhiteSpace(text)) await AddPastedJsonAsync(text);
+    }
+
+    /// <summary>Adds JSON text as a file entry. The text is saved to a temp file so it flows through the same streaming pipeline.</summary>
+    public async Task AddPastedJsonAsync(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) { Banner("There's no text to add. Copy some JSON and try again.", "warning", false); return; }
+        FileItem item;
+        try
+        {
+            Directory.CreateDirectory(PasteDir);
+            int n = ++_pasteCounter;
+            string path = Path.Combine(PasteDir, $"pasted-{n}-{Guid.NewGuid():N}.json"[..24] + ".json");
+            await File.WriteAllTextAsync(path, text, new System.Text.UTF8Encoding(false));
+            item = new FileItem(path, $"Pasted JSON {n}");
+        }
+        catch (Exception ex)
+        {
+            Banner(_files.Describe(ex), "error", false);
+            _log.LogWarning(ex, "Could not store pasted JSON");
+            return;
+        }
+        ShowBanner = false;
+        Files.Add(item);
+        RaiseFileStats();
+        if (SelectedFile == null) SelectFile(item);
+        CurrentPage = "Files";
+        await AnalyzeAsync(item);
     }
 
     // ---------------- State
@@ -280,6 +322,7 @@ public partial class MainViewModel : ObservableObject
         if (IsBusy) return;
         bool wasSelected = ReferenceEquals(item, SelectedFile);
         Files.Remove(item);
+        TryDeletePasted(item);
         if (wasSelected)
         {
             SelectedFile = null;
@@ -296,6 +339,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (IsBusy) return;
         _previewCts?.Cancel();
+        foreach (var f in Files) TryDeletePasted(f);
         Files.Clear();
         SelectedFile = null; ClearPreview(); RefreshCandidates(); RaiseFileStats(); ShowBanner = false;
     }
@@ -430,7 +474,7 @@ public partial class MainViewModel : ObservableObject
                     ProgressText = p.Records > 0 ? $"{p.Phase} {p.Records:N0} records" : p.Phase;
                 });
 
-                string baseName = Path.GetFileNameWithoutExtension(file.Path);
+                string baseName = file.OutputBaseName;
                 string unique = baseName; int n = 2;
                 while (!usedNames.Add(unique)) unique = $"{baseName}_{n++}";
 

@@ -70,7 +70,11 @@
               <StackPanel HorizontalAlignment="Center" Spacing="8">
                 <TextBlock Text="Drop JSON or TXT files here" Classes="h1" HorizontalAlignment="Center" />
                 <TextBlock Text="Drag in as many files as you like. Large files are streamed, not loaded into memory." Classes="muted" HorizontalAlignment="Center" />
-                <Button Classes="primary" Content="Browse files" Command="{Binding AddFilesCommand}" HorizontalAlignment="Center" Margin="0,8,0,0" />
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center" Margin="0,8,0,0">
+                  <Button Classes="primary" Content="Browse files" Command="{Binding AddFilesCommand}" />
+                  <Button Classes="soft" Content="Paste JSON" Command="{Binding PasteJsonCommand}" />
+                </StackPanel>
+                <TextBlock Text="Tip: press Ctrl+V (or ⌘+V) anywhere to paste JSON straight from the clipboard." Classes="muted" FontSize="12" HorizontalAlignment="Center" />
               </StackPanel>
             </Border>
 

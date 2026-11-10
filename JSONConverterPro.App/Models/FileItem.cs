@@ -8,16 +8,21 @@ public enum FileStatus { Analyzing, Ready, NeedsSelection, Invalid, Converting, 
 
 public partial class FileItem : ObservableObject
 {
-    public FileItem(string path)
+    public FileItem(string path, string? displayName = null)
     {
         Path = path;
-        Name = System.IO.Path.GetFileName(path);
+        IsPasted = displayName != null;
+        Name = displayName ?? System.IO.Path.GetFileName(path);
+        OutputBaseName = displayName ?? System.IO.Path.GetFileNameWithoutExtension(path);
         try { SizeBytes = new FileInfo(path).Length; } catch { SizeBytes = 0; }
         SizeText = FileSizeHelper.Format(SizeBytes);
     }
 
     public string Path { get; }
     public string Name { get; }
+    public string OutputBaseName { get; }
+    /// <summary>True when the JSON was pasted; its content lives in a temp file that is removed with the item.</summary>
+    public bool IsPasted { get; }
     public long SizeBytes { get; }
     public string SizeText { get; }
 
