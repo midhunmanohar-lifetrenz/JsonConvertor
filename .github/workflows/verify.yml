@@ -1,0 +1,55 @@
+name: verify
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Test (engine + headless UI + 10 MB and 100 MB files)
+        run: dotnet test JSONConverterPro.sln -c Release --logger "trx;LogFileName=results.trx"
+      - name: Publish Windows x64 single-file EXE
+        run: ./publish.ps1
+      - name: Launch the EXE and confirm it stays running
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path dist\win-x64\JSONConverterPro.exe
+          Write-Host "Size: $((Get-Item $exe).Length) bytes"
+          $p = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 12
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          $bmp.Save("$PWD\launch.png")
+          if ($p.HasExited) { Write-Error "EXE exited early with code $($p.ExitCode)"; exit 1 }
+          Write-Host "EXE is running (window title: '$($p.MainWindowTitle)')"
+          Stop-Process -Id $p.Id -Force
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-results
+          path: |
+            dist/win-x64/JSONConverterPro.exe
+            launch.png
+            **/results.trx
+
+  macos-arm64:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet test JSONConverterPro.sln -c Release
+      - run: ./publish.sh mac
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64-dmg
+          path: dist/*.dmg

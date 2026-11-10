@@ -1,0 +1,2 @@
+{ "patients": [ { "id": 1, "name": "A" }, { "id": 2, "name": "B" } ],
+  "appointments": [ { "apptId": "X1", "patientId": 1 }, { "apptId": "X2", "patientId": 1 }, { "apptId": "X3", "patientId": 2 } ] }

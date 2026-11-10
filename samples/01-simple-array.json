@@ -1,0 +1,5 @@
+[
+  { "id": 1, "name": "Asha Nair", "active": true, "balance": 1250.75 },
+  { "id": 2, "name": "John Mathew", "active": false, "balance": 0 },
+  { "id": 3, "name": "Zoë Müller", "active": true, "balance": null }
+]

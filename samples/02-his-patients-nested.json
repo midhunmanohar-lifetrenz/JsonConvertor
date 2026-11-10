@@ -1,0 +1,27 @@
+{
+  "status": "success",
+  "message": "OK",
+  "data": [
+    {
+      "patientId": 1001,
+      "mrn": "000123",
+      "patientName": "John",
+      "registeredOn": "2024-03-15T10:30:00",
+      "demographics": { "age": 35, "gender": "Male", "address": { "city": "Kochi", "pin": "682001" } },
+      "allergies": ["Penicillin", "Dust"],
+      "visits": [
+        { "visitId": "V001", "visitType": "OP", "visitDate": "2024-03-15" },
+        { "visitId": "V002", "visitType": "IP", "visitDate": "2024-04-02" }
+      ]
+    },
+    {
+      "patientId": 1002,
+      "mrn": "000124",
+      "patientName": "Asha",
+      "demographics": { "age": 29, "gender": "Female" },
+      "allergies": [],
+      "visits": [ { "visitId": "V003", "visitType": "OP", "visitDate": "2024-05-20" } ],
+      "notes": null
+    }
+  ]
+}

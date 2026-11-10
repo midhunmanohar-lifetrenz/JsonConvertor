@@ -1,0 +1,19 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="JSONConverterPro.App"
+             RequestedThemeVariant="Light">
+  <Application.Resources>
+    <Color x:Key="SystemAccentColor">#FF6B5B</Color>
+    <Color x:Key="SystemAccentColorDark1">#F25A49</Color>
+    <Color x:Key="SystemAccentColorDark2">#DB4A3A</Color>
+    <Color x:Key="SystemAccentColorDark3">#C03D2F</Color>
+    <Color x:Key="SystemAccentColorLight1">#FF8A7C</Color>
+    <Color x:Key="SystemAccentColorLight2">#FFA79C</Color>
+    <Color x:Key="SystemAccentColorLight3">#FFC4BC</Color>
+  </Application.Resources>
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+    <StyleInclude Source="avares://JSONConverterPro/Styles/Theme.axaml" />
+  </Application.Styles>
+</Application>

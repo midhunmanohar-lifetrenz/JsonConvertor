@@ -1,0 +1,10 @@
+{
+  "result": {
+    "total": 2,
+    "items": [
+      { "labOrderId": 9900000000000000123, "orderCode": "CBC", "orderName": "Complete Blood Count", "status": "Completed",
+        "tests": [ { "code": "HGB", "name": "Hemoglobin", "value": 13.5, "unit": "g/dL" }, { "code": "WBC", "name": "White cells", "value": 6.2, "unit": "10^3/uL" } ] },
+      { "labOrderId": 9900000000000000124, "orderCode": "LFT", "orderName": "Liver Function", "status": "Pending", "tests": [] }
+    ]
+  }
+}
