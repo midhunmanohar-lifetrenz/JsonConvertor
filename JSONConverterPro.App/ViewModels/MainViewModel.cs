@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Reflection;
+using System.Text;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -20,7 +21,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IDialogService _dialogs;
     private readonly AppStateService _state;
     private readonly ILogger<MainViewModel> _log;
-    private CancellationTokenSource? _previewCts, _convertCts, _debounceCts;
+    private CancellationTokenSource? _previewCts, _convertCts, _debounceCts, _pasteCts, _pasteDebounceCts;
     private bool _loading = true;
 
     public MainViewModel(JsonSchemaService schema, ConversionService conv, PreviewService preview, FileService files,
@@ -29,52 +30,10 @@ public partial class MainViewModel : ObservableObject
         _schema = schema; _conv = conv; _preview = preview; _files = files; _dialogs = dialogs; _state = state; _log = log;
         LogEntries = logStore.Entries;
         foreach (var h in state.State.History.Take(100)) History.Add(h);
-        string docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        _outputDirectory = state.State.LastOutputDirectory is { Length: > 0 } d ? d : Path.Combine(docs, "JSON Converter Pro");
+        LastOutputFolder = state.State.LastOutputDirectory ?? "";
         Version = "v" + (Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0");
-        TryCleanPasteDir();
+        TryCleanTempDir();
         _loading = false;
-    }
-
-    // ---------------- Pasted JSON
-
-    private int _pasteCounter;
-    private static string PasteDir => Path.Combine(Path.GetTempPath(), "JSONConverterPro", "pasted");
-    private static void TryCleanPasteDir() { try { if (Directory.Exists(PasteDir)) Directory.Delete(PasteDir, true); } catch { /* in use or locked: ignore */ } }
-    private static void TryDeletePasted(FileItem f) { if (f.IsPasted) { try { File.Delete(f.Path); } catch { } } }
-
-    [RelayCommand]
-    private async Task PasteJsonAsync()
-    {
-        var text = await _dialogs.PasteJsonAsync();
-        if (!string.IsNullOrWhiteSpace(text)) await AddPastedJsonAsync(text);
-    }
-
-    /// <summary>Adds JSON text as a file entry. The text is saved to a temp file so it flows through the same streaming pipeline.</summary>
-    public async Task AddPastedJsonAsync(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) { Banner("There's no text to add. Copy some JSON and try again.", "warning", false); return; }
-        FileItem item;
-        try
-        {
-            Directory.CreateDirectory(PasteDir);
-            int n = ++_pasteCounter;
-            string path = Path.Combine(PasteDir, $"pasted-{n}-{Guid.NewGuid():N}.json"[..24] + ".json");
-            await File.WriteAllTextAsync(path, text, new System.Text.UTF8Encoding(false));
-            item = new FileItem(path, $"Pasted JSON {n}");
-        }
-        catch (Exception ex)
-        {
-            Banner(_files.Describe(ex), "error", false);
-            _log.LogWarning(ex, "Could not store pasted JSON");
-            return;
-        }
-        ShowBanner = false;
-        Files.Add(item);
-        RaiseFileStats();
-        if (SelectedFile == null) SelectFile(item);
-        CurrentPage = "Files";
-        await AnalyzeAsync(item);
     }
 
     // ---------------- State
@@ -82,15 +41,19 @@ public partial class MainViewModel : ObservableObject
     public string Version { get; }
     public ObservableCollection<FileItem> Files { get; } = new();
     public ObservableCollection<DataSourceCandidate> Candidates { get; } = new();
+    public ObservableCollection<DataSourceCandidate> PasteCandidates { get; } = new();
     public ObservableCollection<HistoryEntry> History { get; } = new();
     public ObservableCollection<LogEntry> LogEntries { get; }
     public string LogDirectory => FileLoggerProvider.DefaultDirectory;
 
     public event Action? PreviewChanged;
+    public event Action? PastePreviewChanged;
     public IReadOnlyList<string> PreviewColumns { get; private set; } = Array.Empty<string>();
     public IReadOnlyList<string[]> PreviewRows { get; private set; } = Array.Empty<string[]>();
+    public IReadOnlyList<string> PastePreviewColumns { get; private set; } = Array.Empty<string>();
+    public IReadOnlyList<string[]> PastePreviewRows { get; private set; } = Array.Empty<string[]>();
 
-    [ObservableProperty] private string _currentPage = "Files";
+    [ObservableProperty] private string _currentPage = "Convert";
     [ObservableProperty] private FileItem? _selectedFile;
     [ObservableProperty] private DataSourceCandidate? _selectedCandidate;
 
@@ -104,19 +67,21 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private int _nullIndex;
     [ObservableProperty] private int _delimiterIndex;
     [ObservableProperty] private string _customOrderText = "";
-    [ObservableProperty] private string _outputDirectory;
+
+    /// <summary>Last folder a file was saved to. Only used to start the next dialog there; it is never shown as a default path.</summary>
+    [ObservableProperty] private string _lastOutputFolder = "";
 
     // Progress and feedback
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private double _progressPercent;
-    [ObservableProperty] private string _statusText = "Ready";
+    [ObservableProperty] private string _statusText = "";
     [ObservableProperty] private string _progressText = "";
     [ObservableProperty] private bool _showBanner;
     [ObservableProperty] private string _bannerText = "";
     [ObservableProperty] private string _bannerKind = "info";
     [ObservableProperty] private bool _bannerHasFolder;
 
-    // Preview
+    // File preview (Files / Preview pages)
     [ObservableProperty] private bool _previewBusy;
     [ObservableProperty] private bool _hasPreview;
     [ObservableProperty] private string _previewTotalsText = "";
@@ -125,23 +90,34 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private int _previewColumnCount;
     [ObservableProperty] private long _previewRecordCount;
 
+    // Paste area (Convert page)
+    [ObservableProperty] private string _pasteText = "";
+    [ObservableProperty] private DataSourceCandidate? _selectedPasteCandidate;
+    [ObservableProperty] private string _pasteStatusText = "Paste JSON above to see a live preview.";
+    [ObservableProperty] private string _pasteStatusKind = "idle";
+    [ObservableProperty] private bool _pasteHasPreview;
+    [ObservableProperty] private string _pasteWarnings = "";
+
     public bool HasFiles => Files.Count > 0;
     public bool IsCsv { get => !IsExcel; set => IsExcel = !value; }
     public bool ShowCandidates => Candidates.Count > 1;
+    public bool ShowPasteCandidates => PasteCandidates.Count > 1;
+    public bool IsConvertPage => CurrentPage == "Convert";
     public bool IsFilesPage => CurrentPage == "Files";
     public bool IsPreviewPage => CurrentPage == "Preview";
     public bool IsSettingsPage => CurrentPage == "Settings";
     public bool IsHistoryPage => CurrentPage == "History";
     public bool IsLogPage => CurrentPage == "Log";
+    public bool ShowFilesBar => IsFilesPage || IsPreviewPage;
     public bool IsCustomOrder => OrderIndex == 3;
     public bool ShowDelimiter => !IsExcel;
     public bool ShowSheetName => IsExcel;
+    public bool PasteIsOk => PasteStatusKind == "ok";
+    public bool PasteIsError => PasteStatusKind == "error";
+    public bool PasteIsWarn => PasteStatusKind is "warn" or "busy";
     public string FilesCountText => Files.Count.ToString("N0");
     public string RecordsTotalText => Files.Sum(f => f.SelectedSource?.Count ?? 0).ToString("N0");
     public string ColumnsText => HasPreview ? PreviewColumnCount.ToString("N0") : "–";
-    public bool BannerIsError => BannerKind == "error";
-    public bool BannerIsSuccess => BannerKind == "success";
-    public bool BannerIsWarning => BannerKind is "warning" or "info";
     public string ArrayHint => ArrayModeIndex switch
     {
         0 => "Arrays become one cell separated by semicolons. Arrays of objects keep one column per field, so nothing is lost.",
@@ -167,8 +143,8 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnCurrentPageChanged(string value)
     {
-        OnPropertyChanged(nameof(IsFilesPage)); OnPropertyChanged(nameof(IsPreviewPage)); OnPropertyChanged(nameof(IsSettingsPage));
-        OnPropertyChanged(nameof(IsHistoryPage)); OnPropertyChanged(nameof(IsLogPage));
+        foreach (var n in new[] { nameof(IsConvertPage), nameof(IsFilesPage), nameof(IsPreviewPage), nameof(IsSettingsPage), nameof(IsHistoryPage), nameof(IsLogPage), nameof(ShowFilesBar) })
+            OnPropertyChanged(n);
     }
     partial void OnIsExcelChanged(bool value)
     {
@@ -180,17 +156,12 @@ public partial class MainViewModel : ObservableObject
     partial void OnFlattenNestedChanged(bool value) => SchedulePreview();
     partial void OnParseDatesChanged(bool value) => SchedulePreview();
     partial void OnCustomOrderTextChanged(string value) { if (IsCustomOrder) SchedulePreview(); }
-    partial void OnOutputDirectoryChanged(string value)
-    {
-        if (_loading) return;
-        _state.State.LastOutputDirectory = value; _state.Save();
-    }
-    partial void OnBannerKindChanged(string value)
-    {
-        OnPropertyChanged(nameof(BannerIsError)); OnPropertyChanged(nameof(BannerIsSuccess)); OnPropertyChanged(nameof(BannerIsWarning));
-    }
     partial void OnPreviewColumnCountChanged(int value) => OnPropertyChanged(nameof(ColumnsText));
     partial void OnHasPreviewChanged(bool value) => OnPropertyChanged(nameof(ColumnsText));
+    partial void OnPasteStatusKindChanged(string value)
+    {
+        OnPropertyChanged(nameof(PasteIsOk)); OnPropertyChanged(nameof(PasteIsError)); OnPropertyChanged(nameof(PasteIsWarn));
+    }
 
     // ---------------- Banner
 
@@ -203,7 +174,236 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand] private void DismissBanner() => ShowBanner = false;
     [RelayCommand] private void Navigate(string page) => CurrentPage = page;
 
-    // ---------------- Files
+    // ============================================================
+    //  Paste area (the first screen)
+    // ============================================================
+
+    private static string TempDir => Path.Combine(Path.GetTempPath(), "JSONConverterPro", "paste");
+    private static void TryCleanTempDir() { try { if (Directory.Exists(TempDir)) Directory.Delete(TempDir, true); } catch { /* locked: ignore */ } }
+    private static void TryDelete(string? path) { if (path != null) FileService.TryDelete(path); }
+
+    private string? _pasteFile;                 // last successfully analysed copy of the text
+    private DataSourceCandidate? _pasteSource;  // data array that the preview and downloads use
+    private string? _pasteChosenKey;            // user's explicit array choice, kept across edits
+    private bool _suppressPasteCandidate;
+    private int _pasteSeq;
+
+    private static string Key(DataSourceCandidate c) => c.Kind + ":" + c.Path;
+
+    partial void OnPasteTextChanged(string value) => SchedulePasteRefresh();
+
+    partial void OnSelectedPasteCandidateChanged(DataSourceCandidate? value)
+    {
+        if (_suppressPasteCandidate || value == null) return;
+        _pasteChosenKey = Key(value);
+        SchedulePasteRefresh(0);
+    }
+
+    private void SchedulePasteRefresh(int delayMs = 450)
+    {
+        if (_loading) return;
+        _pasteDebounceCts?.Cancel();
+        var cts = _pasteDebounceCts = new CancellationTokenSource();
+        _ = Task.Delay(delayMs, cts.Token).ContinueWith(t =>
+        {
+            if (!t.IsCanceled) Dispatcher.UIThread.Post(() => _ = RefreshPasteAsync());
+        });
+    }
+
+    private void ClearPastePreview(string status, string kind)
+    {
+        PastePreviewColumns = Array.Empty<string>(); PastePreviewRows = Array.Empty<string[]>();
+        PasteHasPreview = false; PasteWarnings = "";
+        _pasteSource = null;
+        PasteStatusText = status; PasteStatusKind = kind;
+        PastePreviewChanged?.Invoke();
+    }
+
+    [RelayCommand]
+    private void ClearPaste()
+    {
+        _pasteCts?.Cancel();
+        _pasteChosenKey = null;
+        PasteText = "";
+        _suppressPasteCandidate = true; PasteCandidates.Clear(); SelectedPasteCandidate = null; _suppressPasteCandidate = false;
+        OnPropertyChanged(nameof(ShowPasteCandidates));
+        TryDelete(_pasteFile); _pasteFile = null;
+        ClearPastePreview("Paste JSON above to see a live preview.", "idle");
+    }
+
+    public async Task RefreshPasteAsync()
+    {
+        _pasteCts?.Cancel();
+        string text = PasteText;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            TryDelete(_pasteFile); _pasteFile = null;
+            _suppressPasteCandidate = true; PasteCandidates.Clear(); SelectedPasteCandidate = null; _suppressPasteCandidate = false;
+            OnPropertyChanged(nameof(ShowPasteCandidates));
+            ClearPastePreview("Paste JSON above to see a live preview.", "idle");
+            return;
+        }
+
+        var cts = _pasteCts = new CancellationTokenSource();
+        var ct = cts.Token;
+        var settings = ToSettings();
+        string chosenKey = _pasteChosenKey ?? "";
+        string file = Path.Combine(TempDir, $"paste-{++_pasteSeq}.json");
+        PasteStatusText = "Checking…"; PasteStatusKind = "busy";
+        try
+        {
+            var analysis = await Task.Run(() =>
+            {
+                Directory.CreateDirectory(TempDir);
+                File.WriteAllText(file, text, new UTF8Encoding(false));
+                using var s = _files.OpenRead(file);
+                var info = _schema.Analyze(s, ct);
+                if (info.IsEmpty) throw new UserFacingException("There's no JSON in the text yet.");
+                if (info.IsUnsupportedRoot) throw new UserFacingException("The JSON must be an object or an array to convert it.");
+                return info;
+            }, ct);
+            if (ct.IsCancellationRequested) { TryDelete(file); return; }
+
+            _suppressPasteCandidate = true;
+            PasteCandidates.Clear();
+            foreach (var c in analysis.Candidates) PasteCandidates.Add(c);
+            DataSourceCandidate? chosen = analysis.Candidates.FirstOrDefault(c => Key(c) == chosenKey);
+            chosen ??= analysis.RequiresSelection ? null : analysis.Suggested;
+            SelectedPasteCandidate = chosen;
+            _suppressPasteCandidate = false;
+            OnPropertyChanged(nameof(ShowPasteCandidates));
+
+            if (chosen == null)
+            {
+                TryDelete(file);
+                ClearPastePreview("Several data arrays found. Choose the one to convert.", "warn");
+                return;
+            }
+
+            var result = await Task.Run(() => _preview.Build(file, chosen, settings, 10, ct), ct);
+            if (ct.IsCancellationRequested) { TryDelete(file); return; }
+
+            TryDelete(_pasteFile);
+            _pasteFile = file; _pasteSource = chosen;
+            PastePreviewColumns = result.ColumnNames; PastePreviewRows = result.Rows;
+            PasteHasPreview = true;
+            PasteWarnings = string.Join("  ", result.Warnings.Take(3));
+            PasteStatusText = $"Valid · {result.TotalRecords:N0} record{(result.TotalRecords == 1 ? "" : "s")} · {result.TotalColumns:N0} columns" +
+                              (result.ChildTables.Count > 0 ? $" · {result.ChildTables.Count} linked sheet(s)" : "");
+            PasteStatusKind = "ok";
+            PastePreviewChanged?.Invoke();
+        }
+        catch (OperationCanceledException) { TryDelete(file); }
+        catch (Exception ex)
+        {
+            TryDelete(file);
+            if (ct.IsCancellationRequested) return;
+            _suppressPasteCandidate = false;
+            ClearPastePreview(_files.Describe(ex), "error");
+        }
+    }
+
+    /// <summary>Loads a small file straight into the paste area (used when a single file is dropped on the first screen).</summary>
+    public async Task LoadFileIntoEditorAsync(string path)
+    {
+        try
+        {
+            string text = await Task.Run(() =>
+            {
+                _files.ValidateInput(path);
+                using var s = _files.OpenRead(path);
+                using var r = new StreamReader(s, new UTF8Encoding(false), true);
+                return r.ReadToEnd();
+            });
+            _pasteChosenKey = null;
+            CurrentPage = "Convert";
+            PasteText = text;
+        }
+        catch (Exception ex)
+        {
+            Banner(_files.Describe(ex), "error", false);
+            _log.LogWarning(ex, "Could not load {File} into the editor", path);
+        }
+    }
+
+    [RelayCommand] private Task DownloadExcelAsync() => DownloadAsync(OutputFormat.Excel);
+    [RelayCommand] private Task DownloadCsvAsync() => DownloadAsync(OutputFormat.Csv);
+
+    private async Task DownloadAsync(OutputFormat format)
+    {
+        if (IsBusy) return;
+        if (_pasteFile == null || _pasteSource == null || !PasteIsOk)
+        {
+            Banner(PasteIsError ? "Fix the JSON first. The problem is shown above the preview." : "Paste some valid JSON first.", "warning", false);
+            return;
+        }
+        string ext = format == OutputFormat.Excel ? "xlsx" : "csv";
+        string? target = await _dialogs.SaveFileAsync("converted", ext, format == OutputFormat.Excel ? "Excel workbook" : "CSV file",
+            string.IsNullOrEmpty(LastOutputFolder) ? null : LastOutputFolder);
+        if (string.IsNullOrEmpty(target)) return;   // user cancelled the dialog
+
+        string dir = Path.GetDirectoryName(target)!;
+        string baseName = Path.GetFileNameWithoutExtension(target);
+        // Work from a private snapshot so editing the text while saving can't disturb the running conversion.
+        string snapshot = Path.Combine(TempDir, $"download-{Guid.NewGuid():N}.json");
+        try { File.Copy(_pasteFile, snapshot, true); }
+        catch (Exception ex) { Banner(_files.Describe(ex), "error", false); return; }
+
+        var settings = ToSettings();
+        settings.OutputFormat = format;
+        var src = _pasteSource;
+        IsBusy = true; ShowBanner = false; ProgressPercent = 0; StatusText = "Saving…"; ProgressText = "";
+        var cts = _convertCts = new CancellationTokenSource();
+        var progress = new Progress<ConversionProgress>(p =>
+        {
+            ProgressPercent = p.Fraction * 100;
+            ProgressText = p.Records > 0 ? $"{p.Phase} {p.Records:N0} records" : p.Phase;
+        });
+        ConversionResult result;
+        try
+        {
+            string primary = Path.Combine(dir, baseName + "." + ext);
+            var req = new ConversionRequest
+            {
+                InputPath = snapshot, Source = src, Settings = settings, OutputDirectory = dir, OutputBaseName = baseName,
+                // The Save As dialog already confirmed the main file; only ask about additional files (linked CSV tables).
+                ConfirmOverwrite = existing =>
+                {
+                    var extra = existing.Where(f => !string.Equals(f, primary, StringComparison.OrdinalIgnoreCase)).ToList();
+                    return extra.Count == 0 || Dispatcher.UIThread.InvokeAsync(() => _dialogs.ConfirmAsync("Replace existing files?",
+                        $"{extra.Count} other file(s) with matching names already exist in that folder. Do you want to replace them?", "Replace", "Keep existing")).GetAwaiter().GetResult();
+                }
+            };
+            result = await Task.Run(() => _conv.Convert(req, progress, cts.Token));
+        }
+        finally
+        {
+            IsBusy = false; _convertCts = null; cts.Dispose();
+            TryDelete(snapshot);
+        }
+
+        var entry = new FileItem(snapshot, "Pasted JSON");
+        if (result.Success)
+        {
+            LastOutputFolder = dir; _state.State.LastOutputDirectory = dir; _state.Save();
+            AddHistory(entry, result, true);
+            foreach (var w in result.Warnings) _log.LogWarning("Pasted JSON: {Warning}", w);
+            StatusText = "Saved"; ProgressPercent = 100; ProgressText = "";
+            string names = string.Join(", ", result.OutputFiles.Select(Path.GetFileName));
+            Banner($"Saved {result.RecordsProcessed:N0} records to {names}", "success", true);
+        }
+        else if (result.Cancelled) { StatusText = "Cancelled"; Banner("Saving was cancelled. No file was kept.", "warning", false); }
+        else
+        {
+            StatusText = "Failed"; AddHistory(entry, result, false);
+            Banner(result.Message, "error", false);
+            _log.LogError("Pasted JSON: {Message}{Detail}", result.Message, result.TechnicalDetail == null ? "" : Environment.NewLine + result.TechnicalDetail);
+        }
+    }
+
+    // ============================================================
+    //  Files (batch) pages
+    // ============================================================
 
     [RelayCommand]
     private async Task AddFilesAsync()
@@ -322,7 +522,6 @@ public partial class MainViewModel : ObservableObject
         if (IsBusy) return;
         bool wasSelected = ReferenceEquals(item, SelectedFile);
         Files.Remove(item);
-        TryDeletePasted(item);
         if (wasSelected)
         {
             SelectedFile = null;
@@ -339,7 +538,6 @@ public partial class MainViewModel : ObservableObject
     {
         if (IsBusy) return;
         _previewCts?.Cancel();
-        foreach (var f in Files) TryDeletePasted(f);
         Files.Clear();
         SelectedFile = null; ClearPreview(); RefreshCandidates(); RaiseFileStats(); ShowBanner = false;
     }
@@ -349,7 +547,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(HasFiles)); OnPropertyChanged(nameof(FilesCountText)); OnPropertyChanged(nameof(RecordsTotalText));
     }
 
-    // ---------------- Preview
+    // ---------------- File preview
 
     private void ClearPreview()
     {
@@ -366,7 +564,12 @@ public partial class MainViewModel : ObservableObject
         var cts = _debounceCts = new CancellationTokenSource();
         _ = Task.Delay(350, cts.Token).ContinueWith(t =>
         {
-            if (!t.IsCanceled) Dispatcher.UIThread.Post(() => _ = RefreshPreviewAsync());
+            if (t.IsCanceled) return;
+            Dispatcher.UIThread.Post(() =>
+            {
+                _ = RefreshPreviewAsync();
+                if (!string.IsNullOrWhiteSpace(PasteText)) _ = RefreshPasteAsync();   // settings affect the paste preview too
+            });
         });
     }
 
@@ -415,21 +618,14 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    // ---------------- Output folder
+    // ---------------- Misc commands
 
-    [RelayCommand]
-    private async Task BrowseOutputAsync()
-    {
-        var f = await _dialogs.PickFolderAsync();
-        if (!string.IsNullOrEmpty(f)) OutputDirectory = f;
-    }
-
-    [RelayCommand] private void OpenOutputFolder() => ShellService.OpenFolder(OutputDirectory);
+    [RelayCommand] private void OpenOutputFolder() { if (!string.IsNullOrEmpty(LastOutputFolder)) ShellService.OpenFolder(LastOutputFolder); }
     [RelayCommand] private void OpenLogFolder() => ShellService.OpenFolder(LogDirectory);
     [RelayCommand] private void ClearLog() => LogEntries.Clear();
     [RelayCommand] private void ClearHistory() { History.Clear(); _state.State.History.Clear(); _state.Save(); }
 
-    // ---------------- Conversion
+    // ---------------- Batch conversion (Files page)
 
     [RelayCommand]
     private void Cancel()
@@ -450,12 +646,14 @@ public partial class MainViewModel : ObservableObject
             else Banner(Files.Count == 0 ? "Add at least one JSON file to convert." : "None of the added files can be converted. Remove them and add a valid file.", "warning", false);
             return;
         }
-        if (string.IsNullOrWhiteSpace(OutputDirectory)) { Banner("Choose an output folder first.", "warning", false); return; }
+
+        // No default location: the user picks where the files go every time.
+        string? outDir = await _dialogs.PickFolderAsync(string.IsNullOrEmpty(LastOutputFolder) ? null : LastOutputFolder);
+        if (string.IsNullOrEmpty(outDir)) return;
 
         IsBusy = true; ShowBanner = false; ProgressPercent = 0;
         var cts = _convertCts = new CancellationTokenSource();
         var settings = ToSettings();
-        string outDir = OutputDirectory;
         int ok = 0, failed = 0, cancelled = 0;
         var lastMessage = "";
         var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -484,8 +682,8 @@ public partial class MainViewModel : ObservableObject
                     OutputBaseName = unique,
                     ConfirmOverwrite = existing => Dispatcher.UIThread.InvokeAsync(() =>
                         _dialogs.ConfirmAsync("Replace existing file?",
-                            existing.Count == 1 ? $"'{Path.GetFileName(existing[0])}' already exists in the output folder. Do you want to replace it?"
-                                                : $"{existing.Count} files already exist in the output folder. Do you want to replace them?",
+                            existing.Count == 1 ? $"'{Path.GetFileName(existing[0])}' already exists in that folder. Do you want to replace it?"
+                                                : $"{existing.Count} files already exist in that folder. Do you want to replace them?",
                             "Replace", "Keep existing")).GetAwaiter().GetResult()
                 };
                 var result = await Task.Run(() => _conv.Convert(req, progress, cts.Token));
@@ -523,10 +721,11 @@ public partial class MainViewModel : ObservableObject
             foreach (var f in targets.Where(f => f.Status == FileStatus.Converting)) { f.Status = FileStatus.Cancelled; f.StatusText = "Not run"; }
         }
 
+        if (ok > 0) { LastOutputFolder = outDir; _state.State.LastOutputDirectory = outDir; _state.Save(); }
         ProgressPercent = failed == 0 && cancelled == 0 ? 100 : ProgressPercent;
         ProgressText = "";
         if (cancelled > 0) { StatusText = "Cancelled"; Banner("Conversion was cancelled. Files already finished were kept.", "warning", ok > 0); }
-        else if (failed == 0) { StatusText = "Done"; Banner(targets.Count == 1 ? lastMessage : $"Converted {ok} files successfully to {outDir}", "success", true); }
+        else if (failed == 0) { StatusText = "Done"; Banner(targets.Count == 1 ? lastMessage : $"Converted {ok} files successfully.", "success", true); }
         else if (ok > 0) { StatusText = "Finished with errors"; Banner($"{ok} converted, {failed} failed. {lastMessage}", "warning", true); }
         else { StatusText = "Failed"; Banner(lastMessage, "error", false); }
         RaiseFileStats();

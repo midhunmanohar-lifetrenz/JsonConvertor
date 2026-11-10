@@ -23,6 +23,24 @@ public class TestAppBuilder
     }
 }
 
+/// <summary>Stands in for the system file dialogs: records what was asked and answers with preset paths.</summary>
+public sealed class FakeDialogs : IDialogService
+{
+    public string? Folder { get; set; }
+    public Queue<string?> SavePaths { get; } = new();
+    public List<string> SaveRequests { get; } = new();
+    public bool ConfirmAnswer { get; set; } = true;
+    public int FolderPrompts { get; private set; }
+    public Task<IReadOnlyList<string>> PickFilesAsync() => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+    public Task<string?> PickFolderAsync(string? startFolder) { FolderPrompts++; return Task.FromResult(Folder); }
+    public Task<string?> SaveFileAsync(string suggestedName, string extension, string typeLabel, string? startFolder)
+    {
+        SaveRequests.Add(suggestedName + "." + extension);
+        return Task.FromResult(SavePaths.Count > 0 ? SavePaths.Dequeue() : null);
+    }
+    public Task<bool> ConfirmAsync(string title, string message, string yes, string no) => Task.FromResult(ConfirmAnswer);
+}
+
 public class UiTests
 {
     private static string Samples
@@ -47,6 +65,12 @@ public class UiTests
         t.GetAwaiter().GetResult();
     }
 
+    private static void Spin(int ms)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < ms) { Dispatcher.UIThread.RunJobs(); Thread.Sleep(10); }
+    }
+
     private static void Settle(MainViewModel vm)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -62,28 +86,32 @@ public class UiTests
         Dispatcher.UIThread.RunJobs();
     }
 
-    private static void Trace(string m) => File.AppendAllText(Path.Combine(Path.GetTempPath(), "jcp-ui-trace.log"), $"{DateTime.Now:HH:mm:ss.fff} {m}\n");
+    /// <summary>Types text into the paste area and waits for the live preview (the debounce is bypassed by refreshing directly).</summary>
+    private static void SetPaste(MainViewModel vm, string text)
+    {
+        vm.PasteText = text;
+        Pump(vm.RefreshPasteAsync());
+        Spin(700);   // let any queued debounced refresh finish so it can't race the assertions
+    }
 
     private static void Shot(Window w, string name)
     {
-        Trace("shot " + name);
         if (Environment.GetEnvironmentVariable("JCP_NOSHOT") == "1") return;
         Dispatcher.UIThread.RunJobs();
         Directory.CreateDirectory(ShotDir);
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         Dispatcher.UIThread.RunJobs();
-        var frame = w.CaptureRenderedFrame();
-        frame?.Save(Path.Combine(ShotDir, name + ".png"));
-        Trace("shot done " + name);
+        w.CaptureRenderedFrame()?.Save(Path.Combine(ShotDir, name + ".png"));
     }
 
     // One window is shared by all UI tests (constructing a second window in the same headless session stalls);
-    // every test still gets its own fresh object graph and view model.
+    // every test still gets its own fresh object graph, view model and fake dialogs.
     private static MainWindow? _shared;
 
-    private static (MainWindow win, MainViewModel vm) Create()
+    private static (MainWindow win, MainViewModel vm, FakeDialogs dlg) Create()
     {
-        var sp = App.BuildServices();
+        var dlg = new FakeDialogs();
+        var sp = App.BuildServices(sc => sc.AddSingleton<IDialogService>(dlg));
         var vm = sp.GetRequiredService<MainViewModel>();
         if (_shared == null)
         {
@@ -91,18 +119,133 @@ public class UiTests
             _shared.Show();
         }
         _shared.DataContext = vm;
-        sp.GetRequiredService<DialogService>().Owner = _shared;
         Dispatcher.UIThread.RunJobs();
-        return (_shared, vm);
+        return (_shared, vm, dlg);
+    }
+
+    private const string Hospital = """
+    {"status":"success","message":"OK","data":[
+      {"patientId":1001,"mrn":"000123","patientName":"John","demographics":{"age":35,"gender":"Male"},
+       "visits":[{"visitId":"V001","visitType":"OP"},{"visitId":"V002","visitType":"IP"}]},
+      {"patientId":1002,"mrn":"000124","patientName":"Zoë","demographics":{"age":29,"gender":"Female"},"visits":[{"visitId":"V003","visitType":"OP"}]}]}
+    """;
+
+    // ------------------------------------------------------------------ paste-first screen
+
+    [AvaloniaFact]
+    public void PasteScreen_LivePreview_Downloads_AndErrors()
+    {
+        var (win, vm, dlg) = Create();
+        Assert.True(vm.IsConvertPage);                     // first screen is the paste area
+        Shot(win, "10-convert-empty");
+        Assert.False(vm.PasteHasPreview);
+        Assert.Equal("idle", vm.PasteStatusKind);
+
+        // Valid paste -> live preview on the same screen
+        SetPaste(vm, Hospital);
+        Assert.True(vm.PasteIsOk, vm.PasteStatusText);
+        Assert.Contains("2 records", vm.PasteStatusText);
+        Assert.Equal(2, vm.PastePreviewRows.Count);
+        Assert.Equal("patientId", vm.PastePreviewColumns[0]);
+        var grid = win.FindControl<DataGrid>("PastePreviewGrid")!;
+        Assert.Equal(vm.PastePreviewColumns.Count, grid.Columns.Count);
+        Shot(win, "11-convert-valid");
+
+        // Download Excel: Save As dialog decides the location; nothing is written without it
+        Pump(vm.DownloadExcelCommand.ExecuteAsync(null));
+        Assert.Single(dlg.SaveRequests);                   // cancelled dialog (no queued path) -> nothing saved
+        Assert.False(vm.ShowBanner);
+
+        string dir = Path.Combine(Path.GetTempPath(), "jcp-ui-" + Guid.NewGuid().ToString("N")[..6]);
+        Directory.CreateDirectory(dir);
+        string xlsx = Path.Combine(dir, "patients.xlsx");
+        dlg.SavePaths.Enqueue(xlsx);
+        Pump(vm.DownloadExcelCommand.ExecuteAsync(null));
+        Assert.True(File.Exists(xlsx));
+        Assert.Equal("success", vm.BannerKind);
+        using (var wb = Harness.OpenXlsx(xlsx))
+        {
+            var ws = wb.Worksheet(1);
+            Assert.Equal("patientId", ws.Cell(1, 1).GetString());
+            Assert.Equal(1001.0, ws.Cell(2, 1).GetDouble());
+            Assert.Equal("Zoë", Enumerable.Range(1, 12).Select(c => (c, h: ws.Cell(1, c).GetString())).Where(x => x.h == "patientName").Select(x => ws.Cell(3, x.c).GetString()).Single());
+            Assert.Equal(3, ws.LastRowUsed()!.RowNumber());
+        }
+        Shot(win, "12-convert-saved");
+
+        // Download CSV to a name without extension -> .csv is applied, same data
+        string csvTarget = Path.Combine(dir, "patients");
+        dlg.SavePaths.Enqueue(csvTarget + ".csv");
+        Pump(vm.DownloadCsvCommand.ExecuteAsync(null));
+        var rows = Harness.ReadCsv(Path.Combine(dir, "patients.csv"));
+        Assert.Equal(3, rows.Count);
+        Assert.Equal("patientId", rows[0][0]);
+        Assert.Equal("1002", rows[2][0]);
+        Assert.Contains("V001; V002", rows[1]);
+
+        // Invalid JSON -> error shown, download blocked (no Save As prompt)
+        SetPaste(vm, """[{"id":1},{"id":2,]""");
+        Assert.True(vm.PasteIsError);
+        Assert.Contains("not valid JSON", vm.PasteStatusText);
+        Assert.False(vm.PasteHasPreview);
+        Assert.Empty(vm.PastePreviewRows);
+        int before = dlg.SaveRequests.Count;
+        Pump(vm.DownloadCsvCommand.ExecuteAsync(null));
+        Assert.Equal(before, dlg.SaveRequests.Count);
+        Assert.Equal("warning", vm.BannerKind);
+        Shot(win, "13-convert-error");
+
+        // Several arrays -> must choose, then preview appears
+        SetPaste(vm, """{"patients":[{"id":1}],"visits":[{"v":1},{"v":2}]}""");
+        Assert.Equal("warn", vm.PasteStatusKind);
+        Assert.True(vm.ShowPasteCandidates);
+        Assert.False(vm.PasteHasPreview);
+        vm.SelectedPasteCandidate = vm.PasteCandidates.First(c => c.Path == "visits");
+        Spin(300); Pump(vm.RefreshPasteAsync()); Spin(700);
+        Assert.True(vm.PasteIsOk, vm.PasteStatusText);
+        Assert.Equal(2, vm.PastePreviewRows.Count);
+        Assert.Equal(new[] { "v" }, vm.PastePreviewColumns);
+
+        // Empty text resets everything
+        SetPaste(vm, "");
+        Assert.Equal("idle", vm.PasteStatusKind);
+        Assert.False(vm.PasteHasPreview);
+
+        // Settings change updates the live preview
+        SetPaste(vm, Hospital);
+        vm.OrderIndex = 1;                                 // alphabetical
+        Spin(900);
+        Assert.Equal("demographics.age", vm.PastePreviewColumns[0]);
+
+        Directory.Delete(dir, true);
     }
 
     [AvaloniaFact]
-    public void AddFiles_Preview_Convert_EndToEnd()
+    public void PasteScreen_ExistingFile_IsOverwrittenOnlyAfterSaveDialog()
     {
-        var (win, vm) = Create();
+        var (win, vm, dlg) = Create();
+        string dir = Path.Combine(Path.GetTempPath(), "jcp-ui-" + Guid.NewGuid().ToString("N")[..6]);
+        Directory.CreateDirectory(dir);
+        string csv = Path.Combine(dir, "out.csv");
+        File.WriteAllText(csv, "OLD");
+        SetPaste(vm, """[{"a":1}]""");
+        dlg.SavePaths.Enqueue(csv);                        // the OS dialog already confirmed overwriting this file
+        Pump(vm.DownloadCsvCommand.ExecuteAsync(null));
+        Assert.Contains("a", File.ReadAllText(csv));
+        Assert.DoesNotContain("OLD", File.ReadAllText(csv));
+        Assert.Empty(Directory.GetFiles(dir, "*.tmp"));
+        Directory.Delete(dir, true);
+    }
+
+    // ------------------------------------------------------------------ files (batch) pages
+
+    [AvaloniaFact]
+    public void Files_AddPreviewConvert_AsksForFolderEveryTime()
+    {
+        var (win, vm, dlg) = Create();
         string outDir = Path.Combine(Path.GetTempPath(), "jcp-ui-" + Guid.NewGuid().ToString("N")[..6]);
-        vm.OutputDirectory = outDir;
-        Shot(win, "01-empty");
+        dlg.Folder = outDir;
+        vm.CurrentPage = "Files";
 
         Pump(vm.AddPathsAsync(new[]
         {
@@ -122,68 +265,60 @@ public class UiTests
         Assert.Equal(FileStatus.Invalid, byName["91-empty.json"].Status);
         Assert.Equal(FileStatus.Invalid, byName["notes.docx"].Status);
 
-        // Preview of the first (selected) file
         vm.CurrentPage = "Preview";
         Settle(vm);
         Shot(win, "03-preview");
         Assert.True(vm.HasPreview);
         Assert.Equal(2, vm.PreviewRows.Count);
-        Assert.Equal("patientId", vm.PreviewColumns[0]);   // smart ordering puts ID first
-        var grid = win.FindControl<DataGrid>("PreviewGrid")!;
-        Assert.Equal(vm.PreviewColumns.Count, grid.Columns.Count);
+        Assert.Equal("patientId", vm.PreviewColumns[0]);
 
-        // Switching files must clear old records
         vm.SelectFile(byName["01-simple-array.json"]);
-        Assert.False(vm.HasPreview);
+        Assert.False(vm.HasPreview);                       // old records cleared immediately
         Settle(vm);
         Assert.Equal(3, vm.PreviewRows.Count);
         Assert.DoesNotContain("patientId", vm.PreviewColumns);
 
-        // Multiple-array file requires a choice
         vm.SelectFile(byName["04-multiple-arrays-choose.json"]);
         Settle(vm);
-        Shot(win, "04-choose-array");
         Assert.True(vm.ShowCandidates);
         Assert.False(vm.HasPreview);
         vm.SelectedCandidate = vm.Candidates.First(c => c.Path == "appointments");
         Settle(vm);
         Assert.Equal(3, vm.PreviewRows.Count);
-        Assert.Equal(FileStatus.Ready, byName["04-multiple-arrays-choose.json"].Status);
 
-        // Settings page
-        vm.CurrentPage = "Settings"; Settle(vm);
-        Shot(win, "05-settings");
-
-        // Remove the bad files, convert the rest to Excel
         foreach (var bad in vm.Files.Where(f => f.Status == FileStatus.Invalid).ToList()) vm.RemoveFile(bad);
         Assert.Equal(3, vm.Files.Count);
-        vm.CurrentPage = "Files";
+
+        // Folder is chosen by the user (not a default); cancelling the picker converts nothing
+        dlg.Folder = null;
+        Pump(vm.ConvertCommand.ExecuteAsync(null));
+        Assert.Equal(1, dlg.FolderPrompts);
+        Assert.All(vm.Files, f => Assert.NotEqual(FileStatus.Done, f.Status));
+        Assert.False(Directory.Exists(outDir));
+
+        dlg.Folder = outDir;
         int histBefore = vm.History.Count(h => h.Success);
         Pump(vm.ConvertCommand.ExecuteAsync(null));
-        Dispatcher.UIThread.RunJobs();
-        Shot(win, "06-converted");
-
-        Assert.True(vm.ShowBanner);
+        Assert.Equal(2, dlg.FolderPrompts);
         Assert.Equal("success", vm.BannerKind);
         Assert.All(vm.Files, f => Assert.Equal(FileStatus.Done, f.Status));
-        var outputs = Directory.GetFiles(outDir, "*.xlsx").Select(Path.GetFileName).OrderBy(x => x).ToArray();
-        Assert.Equal(new[] { "01-simple-array.xlsx", "02-his-patients-nested.xlsx", "04-multiple-arrays-choose.xlsx" }, outputs);
+        Assert.Equal(new[] { "01-simple-array.xlsx", "02-his-patients-nested.xlsx", "04-multiple-arrays-choose.xlsx" },
+            Directory.GetFiles(outDir, "*.xlsx").Select(Path.GetFileName).OrderBy(x => x).ToArray());
         Assert.Equal(3, vm.History.Count(h => h.Success) - histBefore);
+        Shot(win, "06-converted");
 
-        vm.CurrentPage = "History"; Shot(win, "07-history");
         vm.ClearFilesCommand.Execute(null);
         Assert.Empty(vm.Files);
         Assert.False(vm.HasPreview);
-        // window intentionally left open: closing the last window ends the headless session
         Directory.Delete(outDir, true);
     }
 
     [AvaloniaFact]
-    public void Csv_Conversion_FromViewModel()
+    public void Files_CsvBatch_UsesSettings()
     {
-        var (win, vm) = Create();
+        var (win, vm, dlg) = Create();
         string outDir = Path.Combine(Path.GetTempPath(), "jcp-ui-" + Guid.NewGuid().ToString("N")[..6]);
-        vm.OutputDirectory = outDir;
+        dlg.Folder = outDir;
         vm.IsExcel = false;
         vm.DelimiterIndex = 1;
         Pump(vm.AddPathsAsync(new[] { Path.Combine(Samples, "05-unicode-multilingual.json") }));
@@ -193,26 +328,6 @@ public class UiTests
         Assert.True(File.Exists(csv));
         Assert.Contains("नमस्ते;कोच्चि", File.ReadAllText(csv));
         vm.ClearFilesCommand.Execute(null);
-
-        // Pasted JSON: valid, invalid, converted, and temp file removed with the entry
-        Pump(vm.AddPastedJsonAsync("""{"status":"ok","data":[{"id":"A1","name":"Zoë","n":{"x":1}},{"id":"A2","name":"Bo"}]}"""));
-        Pump(vm.AddPastedJsonAsync("""[{"id":1},{"id":2,]"""));
-        Settle(vm);
-        Assert.Equal(2, vm.Files.Count);
-        var pasted = vm.Files[0]; var badPaste = vm.Files[1];
-        Assert.Equal("Pasted JSON 1", pasted.Name);
-        Assert.Equal(FileStatus.Ready, pasted.Status);
-        Assert.Equal("2 records", pasted.RecordsText);
-        Assert.Equal(FileStatus.Invalid, badPaste.Status);
-        Assert.Contains("not valid JSON", badPaste.Detail);
-        Assert.True(File.Exists(pasted.Path));
-        vm.RemoveFile(badPaste);
-        Pump(vm.ConvertCommand.ExecuteAsync(null));
-        Assert.True(File.Exists(Path.Combine(outDir, "Pasted JSON 1.csv")));
-        Assert.Contains("A1;Zoë", File.ReadAllText(Path.Combine(outDir, "Pasted JSON 1.csv")).Replace("\r", ""));
-        string tmp = pasted.Path;
-        vm.RemoveFile(pasted);
-        Assert.False(File.Exists(tmp));
         Directory.Delete(outDir, true);
     }
 }

@@ -135,6 +135,7 @@ public class ConversionTests : IDisposable
         var (hdr, rows) = Csv1(r.OutputFiles[0]);
         Assert.Equal("V001; V002", rows[0][hdr.IndexOf("visits.visitId")]);
         Assert.Equal("OP; IP", rows[0][hdr.IndexOf("visits.visitType")]);   // nothing silently dropped
+        Assert.DoesNotContain("visits", hdr);                                // no stray empty column for the array itself
     }
 
     [Fact]

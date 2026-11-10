@@ -12,6 +12,7 @@ namespace JSONConverterPro.Views;
 
 public partial class MainWindow : Window
 {
+    private const long MaxEditorFileBytes = 2 * 1024 * 1024;
     private MainViewModel? _vm;
 
     public MainWindow()
@@ -27,10 +28,11 @@ public partial class MainWindow : Window
 
     private void Hook()
     {
-        if (_vm != null) { _vm.PreviewChanged -= RebuildGrid; _vm.PropertyChanged -= OnVmChanged; }
+        if (_vm != null) { _vm.PreviewChanged -= RebuildFileGrid; _vm.PastePreviewChanged -= RebuildPasteGrid; _vm.PropertyChanged -= OnVmChanged; }
         _vm = DataContext as MainViewModel;
         if (_vm == null) return;
-        _vm.PreviewChanged += RebuildGrid;
+        _vm.PreviewChanged += RebuildFileGrid;
+        _vm.PastePreviewChanged += RebuildPasteGrid;
         _vm.PropertyChanged += OnVmChanged;
         UpdateBanner();
     }
@@ -49,13 +51,11 @@ public partial class MainWindow : Window
     }
 
     /// <summary>The preview columns are dynamic, so they are rebuilt from the detected structure each time.</summary>
-    private void RebuildGrid()
+    private static void Rebuild(DataGrid? grid, IReadOnlyList<string> cols, IReadOnlyList<string[]> rows)
     {
-        var grid = this.FindControl<DataGrid>("PreviewGrid");
-        if (grid == null || _vm == null) return;
+        if (grid == null) return;
         grid.ItemsSource = null;
         grid.Columns.Clear();
-        var cols = _vm.PreviewColumns;
         for (int i = 0; i < cols.Count; i++)
         {
             grid.Columns.Add(new DataGridTextColumn
@@ -66,21 +66,25 @@ public partial class MainWindow : Window
                 Width = new DataGridLength(1, DataGridLengthUnitType.Auto)
             });
         }
-        grid.ItemsSource = _vm.PreviewRows;
+        grid.ItemsSource = rows;
     }
 
-    // ---- Paste shortcut: Ctrl+V / Cmd+V adds JSON from the clipboard unless a text box has focus
+    private void RebuildFileGrid() { if (_vm != null) Rebuild(this.FindControl<DataGrid>("PreviewGrid"), _vm.PreviewColumns, _vm.PreviewRows); }
+    private void RebuildPasteGrid() { if (_vm != null) Rebuild(this.FindControl<DataGrid>("PastePreviewGrid"), _vm.PastePreviewColumns, _vm.PastePreviewRows); }
+
+    // ---- Paste shortcut: Ctrl+V / Cmd+V anywhere (outside a text box) puts the clipboard text into the paste area
 
     private async void OnKeyDown(object? sender, KeyEventArgs e)
     {
         bool mod = e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
         if (!mod || e.Key != Key.V || _vm == null) return;
-        if (FocusManager?.GetFocusedElement() is TextBox) return;
+        if (FocusManager?.GetFocusedElement() is TextBox) return;   // a text box handles its own paste
         e.Handled = true;
         string? text = null;
         try { if (Clipboard != null) text = await Clipboard.GetTextAsync(); } catch { /* clipboard unavailable */ }
         if (string.IsNullOrWhiteSpace(text)) { _vm.ShowError("The clipboard doesn't contain any text. Copy some JSON first."); return; }
-        await _vm.AddPastedJsonAsync(text);
+        _vm.CurrentPage = "Convert";
+        _vm.PasteText = text;
     }
 
     // ---- Drag and drop
@@ -91,23 +95,33 @@ public partial class MainWindow : Window
     {
         e.DragEffects = HasFiles(e) ? DragDropEffects.Copy : DragDropEffects.None;
         this.FindControl<Border>("DropZone")?.Classes.Set("hot", HasFiles(e));
+        this.FindControl<Border>("EditorCard")?.Classes.Set("hot", HasFiles(e));
         e.Handled = true;
     }
 
-    private void OnDragLeave(object? sender, DragEventArgs e) =>
+    private void OnDragLeave(object? sender, DragEventArgs e)
+    {
         this.FindControl<Border>("DropZone")?.Classes.Set("hot", false);
+        this.FindControl<Border>("EditorCard")?.Classes.Set("hot", false);
+    }
 
     private async void OnDrop(object? sender, DragEventArgs e)
     {
-        this.FindControl<Border>("DropZone")?.Classes.Set("hot", false);
+        OnDragLeave(null, e);
         if (_vm == null) return;
         var paths = e.Data.GetFiles()?.Select(f => f.TryGetLocalPath()).Where(p => !string.IsNullOrEmpty(p)).Cast<string>().ToList();
-        if (paths is { Count: > 0 })
-        {
-            _vm.CurrentPage = "Files";
-            await _vm.AddPathsAsync(paths);
-        }
         e.Handled = true;
+        if (paths is not { Count: > 0 }) return;
+
+        // One small file dropped on the first screen goes straight into the paste area; everything else joins the file list.
+        if (_vm.IsConvertPage && paths.Count == 1 && new FileInfo(paths[0]).Length <= MaxEditorFileBytes
+            && (paths[0].EndsWith(".json", StringComparison.OrdinalIgnoreCase) || paths[0].EndsWith(".txt", StringComparison.OrdinalIgnoreCase)))
+        {
+            await _vm.LoadFileIntoEditorAsync(paths[0]);
+            return;
+        }
+        _vm.CurrentPage = "Files";
+        await _vm.AddPathsAsync(paths);
     }
 
     // ---- Row handlers (item templates carry the FileItem in Tag)

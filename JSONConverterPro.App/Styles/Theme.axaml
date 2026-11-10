@@ -103,4 +103,43 @@
   <Style Selector="Border.banner"><Setter Property="Background" Value="{DynamicResource OkBgBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource OkBrush}" /></Style>
   <Style Selector="Border.banner.err"><Setter Property="Background" Value="{DynamicResource ErrBgBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource ErrBrush}" /></Style>
   <Style Selector="Border.banner.warn"><Setter Property="Background" Value="{DynamicResource WarnBgBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource WarnBrush}" /></Style>
+  <Style Selector="Button.tab">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+    <Setter Property="Padding" Value="14,7" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+  <Style Selector="Button.tab:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#E8F2F4" /><Setter Property="Foreground" Value="{DynamicResource InkBrush}" /></Style>
+  <Style Selector="Button.tab.active /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource SideBrush}" /><Setter Property="Foreground" Value="White" /></Style>
+
+  <Style Selector="Button.link">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Padding" Value="4,2" />
+  </Style>
+  <Style Selector="Button.link:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="Transparent" /><Setter Property="Foreground" Value="{DynamicResource AccentPressedBrush}" /></Style>
+
+  <Style Selector="Button.dark">
+    <Setter Property="Background" Value="{DynamicResource SideBrush}" />
+    <Setter Property="Foreground" Value="White" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Padding" Value="22,10" />
+    <Setter Property="CornerRadius" Value="10" />
+  </Style>
+  <Style Selector="Button.dark:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#15546A" /><Setter Property="Foreground" Value="White" /></Style>
+
+  <Style Selector="Border.badge">
+    <Setter Property="Background" Value="#DDEEF0" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="10,4" />
+  </Style>
+  <Style Selector="Border.badge.ok"><Setter Property="Background" Value="{DynamicResource OkBgBrush}" /></Style>
+  <Style Selector="Border.badge.err"><Setter Property="Background" Value="{DynamicResource ErrBgBrush}" /></Style>
+  <Style Selector="Border.badge.warn"><Setter Property="Background" Value="{DynamicResource WarnBgBrush}" /></Style>
+  <Style Selector="Border.badge.ok TextBlock"><Setter Property="Foreground" Value="{DynamicResource OkBrush}" /></Style>
+  <Style Selector="Border.badge.err TextBlock"><Setter Property="Foreground" Value="{DynamicResource ErrBrush}" /></Style>
+  <Style Selector="Border.badge.warn TextBlock"><Setter Property="Foreground" Value="{DynamicResource WarnBrush}" /></Style>
+  <Style Selector="Border.card.hot"><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" /><Setter Property="BorderThickness" Value="2" /></Style>
 </Styles>

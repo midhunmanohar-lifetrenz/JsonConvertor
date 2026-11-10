@@ -65,9 +65,10 @@ public sealed class AppStateService
 public interface IDialogService
 {
     Task<IReadOnlyList<string>> PickFilesAsync();
-    Task<string?> PickFolderAsync();
+    Task<string?> PickFolderAsync(string? startFolder);
+    /// <summary>Shows the system Save As dialog; returns the chosen path or null if cancelled.</summary>
+    Task<string?> SaveFileAsync(string suggestedName, string extension, string typeLabel, string? startFolder);
     Task<bool> ConfirmAsync(string title, string message, string yes, string no);
-    Task<string?> PasteJsonAsync();
 }
 
 public sealed class DialogService : IDialogService
@@ -86,65 +87,35 @@ public sealed class DialogService : IDialogService
         return files.Select(f => f.TryGetLocalPath()).Where(p => p != null).Cast<string>().ToList();
     }
 
-    public async Task<string?> PickFolderAsync()
+    private async Task<IStorageFolder?> StartFolder(string? path)
+    {
+        if (Owner == null || string.IsNullOrEmpty(path) || !Directory.Exists(path)) return null;
+        try { return await Owner.StorageProvider.TryGetFolderFromPathAsync(path); } catch { return null; }
+    }
+
+    public async Task<string?> PickFolderAsync(string? startFolder)
     {
         if (Owner == null) return null;
-        var res = await Owner.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = "Choose output folder", AllowMultiple = false });
+        var res = await Owner.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Choose where to save the converted files", AllowMultiple = false, SuggestedStartLocation = await StartFolder(startFolder)
+        });
         return res.Count > 0 ? res[0].TryGetLocalPath() : null;
     }
 
-    public async Task<string?> PasteJsonAsync()
+    public async Task<string?> SaveFileAsync(string suggestedName, string extension, string typeLabel, string? startFolder)
     {
         if (Owner == null) return null;
-        var dlg = new Window
+        var file = await Owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Paste JSON", Width = 760, SizeToContent = SizeToContent.Height, CanResize = false,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner, ShowInTaskbar = false
-        };
-        var box = new TextBox
-        {
-            AcceptsReturn = true, AcceptsTab = true, Height = 360, TextWrapping = Avalonia.Media.TextWrapping.NoWrap,
-            FontFamily = new Avalonia.Media.FontFamily("Menlo,Consolas,Courier New,monospace"), FontSize = 12,
-            Watermark = "Paste your JSON here (Ctrl+V or ⌘+V)"
-        };
-        ScrollViewer.SetHorizontalScrollBarVisibility(box, Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
-        ScrollViewer.SetVerticalScrollBarVisibility(box, Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
-        var clip = new Button { Content = "Paste from clipboard", Classes = { "soft" } };
-        var cancel = new Button { Content = "Cancel", Classes = { "soft" } };
-        var add = new Button { Content = "Add to files", Classes = { "primary" } };
-        var error = new TextBlock { Foreground = Avalonia.Media.Brushes.Firebrick, IsVisible = false };
-        clip.Click += async (_, _) => { var t = await (dlg.Clipboard?.GetTextAsync() ?? Task.FromResult<string?>(null)); if (!string.IsNullOrEmpty(t)) box.Text = t; };
-        cancel.Click += (_, _) => dlg.Close(null);
-        add.Click += (_, _) =>
-        {
-            if (string.IsNullOrWhiteSpace(box.Text)) { error.Text = "Paste some JSON first."; error.IsVisible = true; return; }
-            dlg.Close(box.Text);
-        };
-        box.TextChanged += (_, _) => error.IsVisible = false;
-        dlg.Opened += async (_, _) =>
-        {
-            // Pre-fill when the clipboard already holds JSON.
-            try
-            {
-                var t = await (dlg.Clipboard?.GetTextAsync() ?? Task.FromResult<string?>(null));
-                var trimmed = t?.TrimStart();
-                if (!string.IsNullOrEmpty(trimmed) && (trimmed[0] == '{' || trimmed[0] == '[')) box.Text = t;
-            }
-            catch { /* clipboard unavailable */ }
-            box.Focus();
-        };
-        dlg.Content = new StackPanel
-        {
-            Margin = new Thickness(24), Spacing = 14,
-            Children =
-            {
-                new TextBlock { Text = "Paste JSON", FontSize = 17, FontWeight = Avalonia.Media.FontWeight.SemiBold },
-                new TextBlock { Text = "It is added to your files like any other file and checked for errors there.", Foreground = Avalonia.Media.Brushes.Gray },
-                box, error,
-                new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, HorizontalAlignment = HorizontalAlignment.Right, Children = { clip, cancel, add } }
-            }
-        };
-        return await dlg.ShowDialog<string?>(Owner);
+            Title = "Save converted file",
+            SuggestedFileName = suggestedName,
+            DefaultExtension = extension,
+            ShowOverwritePrompt = true,
+            SuggestedStartLocation = await StartFolder(startFolder),
+            FileTypeChoices = new[] { new FilePickerFileType(typeLabel) { Patterns = new[] { "*." + extension } } }
+        });
+        return file?.TryGetLocalPath();
     }
 
     public async Task<bool> ConfirmAsync(string title, string message, string yes, string no)

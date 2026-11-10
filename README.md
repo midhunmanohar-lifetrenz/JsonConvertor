@@ -8,7 +8,8 @@ Runs on **Windows x64** and **macOS Apple Silicon**. No Excel, Python, .NET SDK 
 
 ## Features
 
-- Drag-and-drop, Browse, or **Paste JSON** (button, or Ctrl+V / ⌘+V anywhere), multiple files, per-file size/status, remove file, batch conversion
+- **Paste-first home screen**: paste or type JSON into a free text area, see the live preview (first 10 records, valid/error badge, array picker) on the same screen, then **Download Excel** or **Download CSV**. A Save As dialog lets you choose where the file goes (no default path is assumed). Ctrl+V / ⌘+V works anywhere; dropping a small file on the screen fills the text area
+- Files page: drag-and-drop or Browse, multiple files, per-file size/status, remove file, batch conversion
 - Automatic structure detection: root array, root object, wrapper objects (`status` / `message` / `data`), nested paths (`result.items`).
   If several arrays of objects exist you must pick one (no guessing). "Whole object as one record" is always offered for wrappers.
 - Flattening with dot notation (`demographics.age`), duplicate / colliding names kept safely (`a.b` vs `{"a":{"b"}}` → `a.b`, `a.b (2)`)
@@ -89,7 +90,7 @@ The engine lives in a separate `Core` library so it is fully testable and identi
 
 ## Tests
 
-45+ automated tests, including: simple/nested/array-of-objects, null and missing, empty and invalid JSON, Unicode (UTF-8, UTF-8 BOM, UTF-16),
+46 automated tests, including: simple/nested/array-of-objects, null and missing, empty and invalid JSON, Unicode (UTF-8, UTF-8 BOM, UTF-16),
 duplicate/colliding columns, big IDs and leading zeros, ISO date detection, column ordering modes, CSV escaping and delimiters,
 overwrite confirmation, cancellation (no files left behind), multiple independent files, preview isolation between files,
 Excel row-limit splitting, a generated **10 MB** file converted to both formats with cell-by-cell equivalence checks,

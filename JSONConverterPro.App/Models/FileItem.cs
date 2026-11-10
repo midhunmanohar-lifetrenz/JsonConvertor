@@ -11,7 +11,6 @@ public partial class FileItem : ObservableObject
     public FileItem(string path, string? displayName = null)
     {
         Path = path;
-        IsPasted = displayName != null;
         Name = displayName ?? System.IO.Path.GetFileName(path);
         OutputBaseName = displayName ?? System.IO.Path.GetFileNameWithoutExtension(path);
         try { SizeBytes = new FileInfo(path).Length; } catch { SizeBytes = 0; }
@@ -21,8 +20,6 @@ public partial class FileItem : ObservableObject
     public string Path { get; }
     public string Name { get; }
     public string OutputBaseName { get; }
-    /// <summary>True when the JSON was pasted; its content lives in a temp file that is removed with the item.</summary>
-    public bool IsPasted { get; }
     public long SizeBytes { get; }
     public string SizeText { get; }
 

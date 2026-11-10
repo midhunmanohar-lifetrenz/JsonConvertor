@@ -16,7 +16,7 @@ public partial class App : Application
     public static IServiceProvider Services { get; private set; } = null!;
 
     /// <summary>Composition root. Also used by UI tests to get an isolated object graph.</summary>
-    public static IServiceProvider BuildServices()
+    public static IServiceProvider BuildServices(Action<IServiceCollection>? configure = null)
     {
         var logStore = new LogStore();
         var sc = new ServiceCollection();
@@ -33,6 +33,7 @@ public partial class App : Application
         sc.AddSingleton<DialogService>();
         sc.AddSingleton<IDialogService>(p => p.GetRequiredService<DialogService>());
         sc.AddSingleton<MainViewModel>();
+        configure?.Invoke(sc);
         return sc.BuildServiceProvider();
     }
 

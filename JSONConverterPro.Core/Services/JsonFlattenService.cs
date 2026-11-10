@@ -179,8 +179,10 @@ public sealed class FlattenService
     private List<FlatRow> HandleArray(JsonElement arr, string id, string name, Ctx c, int depth)
     {
         int len = arr.GetArrayLength();
-        int col = c.Reg.Resolve(id, name, depth);
-        if (len == 0) return Single(col, CellValue.Empty);
+        // The array's own column is only created when the array itself is written to a cell. Arrays of objects
+        // contribute per-field columns instead, so registering it eagerly would leave a stray empty column.
+        int Col() => c.Reg.Resolve(id, name, depth);
+        if (len == 0) return Single(Col(), CellValue.Empty);
 
         bool allPrim = true, allObj = true;
         foreach (var el in arr.EnumerateArray())
@@ -192,10 +194,10 @@ public sealed class FlattenService
 
         var mode = c.ForceJoin ? ArrayHandling.Join : _s.ArrayHandling;
         if (mode == ArrayHandling.JsonText)
-            return Single(col, CellValue.FromText(JsonSerializer.Serialize(arr)));
+            return Single(Col(), CellValue.FromText(JsonSerializer.Serialize(arr)));
         if (mode == ArrayHandling.SeparateSheets)
         {
-            if (allObj) return SeparateSheet(arr, name, col, len, c);
+            if (allObj) return SeparateSheet(arr, name, Col(), len, c);
             mode = ArrayHandling.Join;
         }
         if (mode == ArrayHandling.ExpandRows)
@@ -207,10 +209,10 @@ public sealed class FlattenService
         // Join
         if (allPrim)
         {
-            if (len == 1) return Single(col, ScalarCell(arr[0]));
+            if (len == 1) return Single(Col(), ScalarCell(arr[0]));
             var parts = new List<string>(len);
             foreach (var el in arr.EnumerateArray()) parts.Add(Token(ScalarCell(el)));
-            return Single(col, CellValue.FromText(string.Join(_s.ArrayJoinSeparator, parts)));
+            return Single(Col(), CellValue.FromText(string.Join(_s.ArrayJoinSeparator, parts)));
         }
         return JoinPerField(arr, id, name, len, c, depth);
     }

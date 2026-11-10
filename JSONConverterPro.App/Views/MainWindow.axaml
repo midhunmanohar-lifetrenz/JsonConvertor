@@ -4,62 +4,109 @@
         xmlns:m="using:JSONConverterPro.Models"
         xmlns:core="using:JSONConverterPro.Core.Models"
         xmlns:conv="using:JSONConverterPro.Converters"
-        xmlns:dg="using:Avalonia.Controls"
         x:Class="JSONConverterPro.Views.MainWindow"
         x:DataType="vm:MainViewModel"
-        Title="JSON Converter Pro" Width="1180" Height="780" MinWidth="980" MinHeight="660"
+        Title="JSON Converter Pro" Width="1180" Height="780" MinWidth="900" MinHeight="620"
         Icon="avares://JSONConverterPro/Resources/AppIcon.png"
         WindowStartupLocation="CenterScreen">
 
-  <Grid ColumnDefinitions="224,*">
+  <Grid RowDefinitions="Auto,Auto,*">
 
-    <!-- Sidebar -->
-    <Border Background="{DynamicResource SideBrush}" Padding="14,20">
-      <Grid RowDefinitions="Auto,*,Auto">
-        <StackPanel Spacing="22">
-          <StackPanel Orientation="Horizontal" Spacing="10" Margin="6,0,0,0">
-            <Image Source="avares://JSONConverterPro/Resources/AppIcon.png" Width="38" Height="38" />
-            <StackPanel VerticalAlignment="Center">
-              <StackPanel Orientation="Horizontal" Spacing="4">
-                <TextBlock Text="JSON Converter" Foreground="White" FontWeight="SemiBold" FontSize="15" />
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Spacing="6">
-                <TextBlock Text="Pro" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" />
-                <TextBlock Text="{Binding Version}" Foreground="{DynamicResource SideTextBrush}" FontSize="12" />
-              </StackPanel>
-            </StackPanel>
-          </StackPanel>
-
-          <StackPanel Spacing="4">
-            <Button Classes="nav" Classes.active="{Binding IsFilesPage}" Command="{Binding NavigateCommand}" CommandParameter="Files" Content="Files" />
-            <Button Classes="nav" Classes.active="{Binding IsPreviewPage}" Command="{Binding NavigateCommand}" CommandParameter="Preview" Content="Preview" />
-            <Button Classes="nav" Classes.active="{Binding IsSettingsPage}" Command="{Binding NavigateCommand}" CommandParameter="Settings" Content="Settings" />
-            <Button Classes="nav" Classes.active="{Binding IsHistoryPage}" Command="{Binding NavigateCommand}" CommandParameter="History" Content="History" />
-          </StackPanel>
+    <!-- Top bar -->
+    <Border Grid.Row="0" Background="White" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="20,10">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <Image Source="avares://JSONConverterPro/Resources/AppIcon.png" Width="32" Height="32" />
+          <TextBlock VerticalAlignment="Center" FontSize="15" FontWeight="SemiBold">
+            <Run Text="JSON Converter " /><Run Text="Pro" Foreground="{DynamicResource AccentBrush}" />
+          </TextBlock>
         </StackPanel>
-
-        <Button Grid.Row="2" Classes="nav" Classes.active="{Binding IsLogPage}" Command="{Binding NavigateCommand}" CommandParameter="Log" Content="Error log" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="28,0,0,0" VerticalAlignment="Center">
+          <Button Classes="tab" Classes.active="{Binding IsConvertPage}" Command="{Binding NavigateCommand}" CommandParameter="Convert" Content="Convert" />
+          <Button Classes="tab" Classes.active="{Binding IsFilesPage}" Command="{Binding NavigateCommand}" CommandParameter="Files" Content="Files" />
+          <Button Classes="tab" Classes.active="{Binding IsPreviewPage}" Command="{Binding NavigateCommand}" CommandParameter="Preview" Content="File preview" />
+          <Button Classes="tab" Classes.active="{Binding IsSettingsPage}" Command="{Binding NavigateCommand}" CommandParameter="Settings" Content="Settings" />
+          <Button Classes="tab" Classes.active="{Binding IsHistoryPage}" Command="{Binding NavigateCommand}" CommandParameter="History" Content="History" />
+          <Button Classes="tab" Classes.active="{Binding IsLogPage}" Command="{Binding NavigateCommand}" CommandParameter="Log" Content="Error log" />
+        </StackPanel>
+        <TextBlock Grid.Column="2" Text="{Binding Version}" Classes="muted" VerticalAlignment="Center" />
       </Grid>
     </Border>
 
-    <!-- Main -->
-    <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto">
+    <!-- Banner -->
+    <Border x:Name="BannerBorder" Classes="banner" Grid.Row="1" IsVisible="{Binding ShowBanner}" Margin="24,14,24,0" Padding="16,10" CornerRadius="12" BorderThickness="1">
+      <Grid ColumnDefinitions="*,Auto,Auto">
+        <TextBlock Text="{Binding BannerText}" TextWrapping="Wrap" VerticalAlignment="Center" FontWeight="Medium" />
+        <Button Grid.Column="1" Classes="soft" Content="Open folder" Command="{Binding OpenOutputFolderCommand}" IsVisible="{Binding BannerHasFolder}" Margin="12,0,0,0" />
+        <Button Grid.Column="2" Classes="icon" Content="✕" Command="{Binding DismissBannerCommand}" Margin="6,0,0,0" />
+      </Grid>
+    </Border>
 
-      <!-- Banner -->
-      <Border x:Name="BannerBorder" Classes="banner" Grid.Row="0" IsVisible="{Binding ShowBanner}" Margin="24,18,24,0" Padding="16,12" CornerRadius="12" BorderThickness="1">
-        <Grid ColumnDefinitions="*,Auto,Auto">
-          <TextBlock Text="{Binding BannerText}" TextWrapping="Wrap" VerticalAlignment="Center" FontWeight="Medium" />
-          <Button Grid.Column="1" Classes="soft" Content="Open output folder" Command="{Binding OpenOutputFolderCommand}" IsVisible="{Binding BannerHasFolder}" Margin="12,0,0,0" />
-          <Button Grid.Column="2" Classes="icon" Content="✕" Command="{Binding DismissBannerCommand}" Margin="6,0,0,0" />
+    <!-- Pages -->
+    <Grid Grid.Row="2">
+
+      <!-- ===== Convert page: paste, live preview, download ===== -->
+      <Grid IsVisible="{Binding IsConvertPage}" Margin="24,16,24,16" RowDefinitions="*,Auto,2*,Auto">
+
+        <Border x:Name="EditorCard" Grid.Row="0" Classes="card" Padding="0" MinHeight="120">
+          <Grid RowDefinitions="Auto,*">
+            <Grid ColumnDefinitions="*,Auto" Margin="14,8,10,0">
+              <TextBlock Text="Paste or type JSON here" Classes="muted" VerticalAlignment="Center" />
+              <Button Grid.Column="1" Classes="icon" Content="Clear" Command="{Binding ClearPasteCommand}" />
+            </Grid>
+            <TextBox x:Name="PasteBox" Grid.Row="1" Text="{Binding PasteText}" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap"
+                     Watermark='{}{ "paste": "your JSON here" }   (Ctrl+V or ⌘+V)'
+                     FontFamily="Menlo,Consolas,Courier New,monospace" FontSize="12" BorderThickness="0" Background="Transparent"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" Padding="14,4" />
+          </Grid>
+        </Border>
+
+        <!-- Status row -->
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto,Auto" Margin="0,10,0,10">
+          <Border Classes="badge" Classes.ok="{Binding PasteIsOk}" Classes.err="{Binding PasteIsError}" Classes.warn="{Binding PasteIsWarn}" VerticalAlignment="Center">
+            <TextBlock Text="{Binding PasteStatusText}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="640" />
+          </Border>
+          <TextBlock Grid.Column="1" Text="{Binding PasteWarnings}" Classes="muted" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+          <TextBlock Grid.Column="2" Text="Data array" Classes="muted" VerticalAlignment="Center" Margin="0,0,8,0" IsVisible="{Binding ShowPasteCandidates}" />
+          <ComboBox Grid.Column="3" ItemsSource="{Binding PasteCandidates}" SelectedItem="{Binding SelectedPasteCandidate}" MinWidth="260" IsVisible="{Binding ShowPasteCandidates}" Margin="0,0,10,0">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="core:DataSourceCandidate"><TextBlock Text="{Binding Display}" /></DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <Button Grid.Column="4" Classes="soft" Content="Options" Command="{Binding NavigateCommand}" CommandParameter="Settings" />
         </Grid>
-      </Border>
 
-      <!-- Pages -->
-      <Grid Grid.Row="1">
+        <!-- Live preview -->
+        <Grid Grid.Row="2">
+          <DataGrid x:Name="PastePreviewGrid" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="False"
+                    HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" IsVisible="{Binding PasteHasPreview}" />
+          <Border Classes="card" IsVisible="{Binding !PasteHasPreview}">
+            <TextBlock Classes="muted" Text="The first 10 records appear here as soon as the JSON is valid." HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+        </Grid>
 
-        <!-- Files page -->
-        <ScrollViewer IsVisible="{Binding IsFilesPage}" VerticalScrollBarVisibility="Auto">
-          <StackPanel Margin="24" Spacing="16">
+        <!-- Actions -->
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,14,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <TextBlock Text="Have files instead?" Classes="muted" VerticalAlignment="Center" />
+            <Button Classes="link" Content="Add files" Command="{Binding NavigateCommand}" CommandParameter="Files" />
+          </StackPanel>
+          <Grid Grid.Column="1" ColumnDefinitions="*,Auto" Margin="18,0" VerticalAlignment="Center" IsVisible="{Binding IsBusy}">
+            <ProgressBar Value="{Binding ProgressPercent}" Maximum="100" Height="8" CornerRadius="4" Foreground="{DynamicResource SideBrush}" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="12,0,0,0">
+              <TextBlock Classes="muted"><Run Text="{Binding StatusText}" /><Run Text="  " /><Run Text="{Binding ProgressText}" /></TextBlock>
+              <Button Classes="soft" Content="Cancel" Command="{Binding CancelCommand}" />
+            </StackPanel>
+          </Grid>
+          <Button Grid.Column="2" Classes="primary" Content="Download Excel" Command="{Binding DownloadExcelCommand}" Margin="0,0,10,0" />
+          <Button Grid.Column="3" Classes="dark" Content="Download CSV" Command="{Binding DownloadCsvCommand}" />
+        </Grid>
+      </Grid>
+
+      <!-- ===== Files page ===== -->
+      <Grid IsVisible="{Binding IsFilesPage}" RowDefinitions="*">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="24,24,24,90" Spacing="16">
             <Grid ColumnDefinitions="*,16,*,16,*">
               <Border Classes="card"><StackPanel><TextBlock Classes="muted" Text="Files" /><TextBlock Classes="stat" Text="{Binding FilesCountText}" /></StackPanel></Border>
               <Border Grid.Column="2" Classes="card"><StackPanel><TextBlock Classes="muted" Text="Records" /><TextBlock Classes="stat" Text="{Binding RecordsTotalText}" /></StackPanel></Border>
@@ -70,11 +117,7 @@
               <StackPanel HorizontalAlignment="Center" Spacing="8">
                 <TextBlock Text="Drop JSON or TXT files here" Classes="h1" HorizontalAlignment="Center" />
                 <TextBlock Text="Drag in as many files as you like. Large files are streamed, not loaded into memory." Classes="muted" HorizontalAlignment="Center" />
-                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center" Margin="0,8,0,0">
-                  <Button Classes="primary" Content="Browse files" Command="{Binding AddFilesCommand}" />
-                  <Button Classes="soft" Content="Paste JSON" Command="{Binding PasteJsonCommand}" />
-                </StackPanel>
-                <TextBlock Text="Tip: press Ctrl+V (or ⌘+V) anywhere to paste JSON straight from the clipboard." Classes="muted" FontSize="12" HorizontalAlignment="Center" />
+                <Button Classes="primary" Content="Browse files" Command="{Binding AddFilesCommand}" HorizontalAlignment="Center" Margin="0,8,0,0" />
               </StackPanel>
             </Border>
 
@@ -110,125 +153,113 @@
             </Border>
           </StackPanel>
         </ScrollViewer>
-
-        <!-- Preview page -->
-        <Grid IsVisible="{Binding IsPreviewPage}" Margin="24" RowDefinitions="Auto,Auto,*">
-          <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
-            <StackPanel>
-              <TextBlock Classes="h1" Text="{Binding SelectedFile.Name, FallbackValue='Preview'}" />
-              <TextBlock Classes="muted" Text="{Binding PreviewTotalsText}" />
-            </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-              <TextBlock Text="Data array" Classes="muted" VerticalAlignment="Center" IsVisible="{Binding ShowCandidates}" />
-              <ComboBox ItemsSource="{Binding Candidates}" SelectedItem="{Binding SelectedCandidate}" MinWidth="280" IsVisible="{Binding ShowCandidates}">
-                <ComboBox.ItemTemplate>
-                  <DataTemplate x:DataType="core:DataSourceCandidate"><TextBlock Text="{Binding Display}" /></DataTemplate>
-                </ComboBox.ItemTemplate>
-              </ComboBox>
-              <Button Classes="soft" Content="Refresh" Command="{Binding RefreshPreviewCommand}" />
-            </StackPanel>
-          </Grid>
-          <StackPanel Grid.Row="1" Spacing="6" Margin="0,0,0,8">
-            <ProgressBar IsIndeterminate="True" IsVisible="{Binding PreviewBusy}" Height="4" />
-            <TextBlock Text="{Binding PreviewMessage}" Foreground="{DynamicResource WarnBrush}" TextWrapping="Wrap" IsVisible="{Binding !HasPreview}" />
-            <TextBlock Text="{Binding PreviewWarnings}" Foreground="{DynamicResource WarnBrush}" TextWrapping="Wrap" FontSize="12" />
-          </StackPanel>
-          <DataGrid x:Name="PreviewGrid" Grid.Row="2" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="False"
-                    HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasPreview}" />
-          <TextBlock Grid.Row="2" Classes="muted" Text="Add a file on the Files page to preview its data." HorizontalAlignment="Center" VerticalAlignment="Center"
-                     IsVisible="{Binding !HasFiles}" />
-        </Grid>
-
-        <!-- Settings page -->
-        <ScrollViewer IsVisible="{Binding IsSettingsPage}" VerticalScrollBarVisibility="Auto">
-          <StackPanel Margin="24" Spacing="16" MaxWidth="820" HorizontalAlignment="Left">
-            <TextBlock Classes="h1" Text="Conversion settings" />
-            <Border Classes="card">
-              <StackPanel Spacing="12">
-                <TextBlock Classes="h2" Text="Output" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                  <RadioButton GroupName="fmtS" Classes="seg" Content="Excel (.xlsx)" IsChecked="{Binding IsExcel}" />
-                  <RadioButton GroupName="fmtS" Classes="seg" Content="CSV (.csv)" IsChecked="{Binding IsCsv}" />
-                </StackPanel>
-                <StackPanel IsVisible="{Binding ShowSheetName}" Spacing="4"><TextBlock Classes="muted" Text="Sheet name" /><TextBox Text="{Binding SheetName}" Width="260" HorizontalAlignment="Left" MaxLength="31" /></StackPanel>
-                <StackPanel IsVisible="{Binding ShowDelimiter}" Spacing="4"><TextBlock Classes="muted" Text="CSV delimiter" />
-                  <ComboBox SelectedIndex="{Binding DelimiterIndex}" Width="260"><ComboBoxItem Content="Comma ( , )" /><ComboBoxItem Content="Semicolon ( ; )" /><ComboBoxItem Content="Tab" /></ComboBox></StackPanel>
-              </StackPanel>
-            </Border>
-            <Border Classes="card">
-              <StackPanel Spacing="12">
-                <TextBlock Classes="h2" Text="Structure" />
-                <CheckBox IsChecked="{Binding FlattenNested}" Content="Flatten nested objects into dotted columns (patient.demographics.age)" />
-                <StackPanel Spacing="4"><TextBlock Classes="muted" Text="Arrays" />
-                  <ComboBox SelectedIndex="{Binding ArrayModeIndex}" Width="380">
-                    <ComboBoxItem Content="Combine values into one cell (separated by ;)" /><ComboBoxItem Content="Keep each array as JSON text" />
-                    <ComboBoxItem Content="Expand arrays into separate rows" /><ComboBoxItem Content="Send object arrays to separate sheets" />
-                  </ComboBox>
-                  <TextBlock Classes="muted" Text="{Binding ArrayHint}" TextWrapping="Wrap" FontSize="12" /></StackPanel>
-                <CheckBox IsChecked="{Binding ParseDates}" Content="Format ISO dates (2024-03-15, 2024-03-15T10:30:00) as Excel dates" />
-              </StackPanel>
-            </Border>
-            <Border Classes="card">
-              <StackPanel Spacing="12">
-                <TextBlock Classes="h2" Text="Columns and values" />
-                <StackPanel Spacing="4"><TextBlock Classes="muted" Text="Column order" />
-                  <ComboBox SelectedIndex="{Binding OrderIndex}" Width="380">
-                    <ComboBoxItem Content="Smart (ID, Code, Name, Description, Date, Status, Type, rest)" /><ComboBoxItem Content="Alphabetical" />
-                    <ComboBoxItem Content="Original JSON order" /><ComboBoxItem Content="Custom order" /></ComboBox></StackPanel>
-                <StackPanel IsVisible="{Binding IsCustomOrder}" Spacing="4"><TextBlock Classes="muted" Text="Custom order: one column name per line. Unlisted columns follow in original order." />
-                  <TextBox Text="{Binding CustomOrderText}" AcceptsReturn="True" Height="110" Width="380" HorizontalAlignment="Left" /></StackPanel>
-                <StackPanel Spacing="4"><TextBlock Classes="muted" Text="Null values" />
-                  <ComboBox SelectedIndex="{Binding NullIndex}" Width="380"><ComboBoxItem Content="Leave blank" /><ComboBoxItem Content="Write the word null (missing fields stay blank)" /></ComboBox></StackPanel>
-              </StackPanel>
-            </Border>
-          </StackPanel>
-        </ScrollViewer>
-
-        <!-- History page -->
-        <Grid IsVisible="{Binding IsHistoryPage}" Margin="24" RowDefinitions="Auto,*">
-          <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12"><TextBlock Classes="h1" Text="Recent conversions" /><Button Grid.Column="1" Classes="soft" Content="Clear history" Command="{Binding ClearHistoryCommand}" /></Grid>
-          <ScrollViewer Grid.Row="1"><ItemsControl ItemsSource="{Binding History}"><ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="m:HistoryEntry"><Border Classes="card" Margin="0,0,0,8" Padding="14,10"><Grid ColumnDefinitions="*,Auto">
-              <StackPanel><TextBlock Text="{Binding FileName}" FontWeight="SemiBold" /><TextBlock Text="{Binding Summary}" Classes="muted" TextWrapping="Wrap" /><TextBlock Text="{Binding Output}" Classes="muted" FontSize="12" /></StackPanel>
-              <TextBlock Grid.Column="1" Text="{Binding WhenText}" Classes="muted" />
-            </Grid></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
-        </Grid>
-
-        <!-- Log page -->
-        <Grid IsVisible="{Binding IsLogPage}" Margin="24" RowDefinitions="Auto,*">
-          <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,12"><StackPanel><TextBlock Classes="h1" Text="Error log" /><TextBlock Classes="muted" Text="Warnings and errors from this session. Full technical details are saved to the log files." /></StackPanel>
-            <Button Grid.Column="1" Classes="soft" Content="Open log folder" Command="{Binding OpenLogFolderCommand}" Margin="0,0,8,0" /><Button Grid.Column="2" Classes="soft" Content="Clear" Command="{Binding ClearLogCommand}" /></Grid>
-          <ScrollViewer Grid.Row="1"><ItemsControl ItemsSource="{Binding LogEntries}"><ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="m:LogEntry"><Border Classes="card" Margin="0,0,0,6" Padding="12,8"><Grid ColumnDefinitions="70,80,*">
-              <TextBlock Text="{Binding WhenText}" Classes="muted" /><TextBlock Grid.Column="1" Text="{Binding Level}" FontWeight="SemiBold" /><TextBlock Grid.Column="2" Text="{Binding Message}" TextWrapping="Wrap" />
-            </Grid></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
-        </Grid>
       </Grid>
 
-      <!-- Export bar -->
-      <Border Grid.Row="2" Background="White" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="24,14">
-        <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
+      <!-- ===== File preview page ===== -->
+      <Grid IsVisible="{Binding IsPreviewPage}" Margin="24,24,24,90" RowDefinitions="Auto,Auto,*">
+        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+          <StackPanel>
+            <TextBlock Classes="h1" Text="{Binding SelectedFile.Name, FallbackValue='File preview'}" />
+            <TextBlock Classes="muted" Text="{Binding PreviewTotalsText}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <TextBlock Text="Data array" Classes="muted" VerticalAlignment="Center" IsVisible="{Binding ShowCandidates}" />
+            <ComboBox ItemsSource="{Binding Candidates}" SelectedItem="{Binding SelectedCandidate}" MinWidth="280" IsVisible="{Binding ShowCandidates}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="core:DataSourceCandidate"><TextBlock Text="{Binding Display}" /></DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Classes="soft" Content="Refresh" Command="{Binding RefreshPreviewCommand}" />
+          </StackPanel>
+        </Grid>
+        <StackPanel Grid.Row="1" Spacing="6" Margin="0,0,0,8">
+          <ProgressBar IsIndeterminate="True" IsVisible="{Binding PreviewBusy}" Height="4" />
+          <TextBlock Text="{Binding PreviewMessage}" Foreground="{DynamicResource WarnBrush}" TextWrapping="Wrap" IsVisible="{Binding !HasPreview}" />
+          <TextBlock Text="{Binding PreviewWarnings}" Foreground="{DynamicResource WarnBrush}" TextWrapping="Wrap" FontSize="12" />
+        </StackPanel>
+        <DataGrid x:Name="PreviewGrid" Grid.Row="2" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="False"
+                  HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasPreview}" />
+        <TextBlock Grid.Row="2" Classes="muted" Text="Add a file on the Files page to preview its data." HorizontalAlignment="Center" VerticalAlignment="Center"
+                   IsVisible="{Binding !HasFiles}" />
+      </Grid>
+
+      <!-- ===== Settings page ===== -->
+      <ScrollViewer IsVisible="{Binding IsSettingsPage}" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24" Spacing="16" MaxWidth="820" HorizontalAlignment="Left">
+          <TextBlock Classes="h1" Text="Conversion settings" />
+          <TextBlock Classes="muted" Text="These apply to the paste area and to files. Changes update the previews right away." />
+          <Border Classes="card">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="h2" Text="Excel and CSV options" />
+              <StackPanel Spacing="4"><TextBlock Classes="muted" Text="Sheet name (Excel)" /><TextBox Text="{Binding SheetName}" Width="260" HorizontalAlignment="Left" MaxLength="31" /></StackPanel>
+              <StackPanel Spacing="4"><TextBlock Classes="muted" Text="CSV delimiter" />
+                <ComboBox SelectedIndex="{Binding DelimiterIndex}" Width="260"><ComboBoxItem Content="Comma ( , )" /><ComboBoxItem Content="Semicolon ( ; )" /><ComboBoxItem Content="Tab" /></ComboBox></StackPanel>
+            </StackPanel>
+          </Border>
+          <Border Classes="card">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="h2" Text="Structure" />
+              <CheckBox IsChecked="{Binding FlattenNested}" Content="Flatten nested objects into dotted columns (patient.demographics.age)" />
+              <StackPanel Spacing="4"><TextBlock Classes="muted" Text="Arrays" />
+                <ComboBox SelectedIndex="{Binding ArrayModeIndex}" Width="380">
+                  <ComboBoxItem Content="Combine values into one cell (separated by ;)" /><ComboBoxItem Content="Keep each array as JSON text" />
+                  <ComboBoxItem Content="Expand arrays into separate rows" /><ComboBoxItem Content="Send object arrays to separate sheets" />
+                </ComboBox>
+                <TextBlock Classes="muted" Text="{Binding ArrayHint}" TextWrapping="Wrap" FontSize="12" /></StackPanel>
+              <CheckBox IsChecked="{Binding ParseDates}" Content="Format ISO dates (2024-03-15, 2024-03-15T10:30:00) as Excel dates" />
+            </StackPanel>
+          </Border>
+          <Border Classes="card">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="h2" Text="Columns and values" />
+              <StackPanel Spacing="4"><TextBlock Classes="muted" Text="Column order" />
+                <ComboBox SelectedIndex="{Binding OrderIndex}" Width="380">
+                  <ComboBoxItem Content="Smart (ID, Code, Name, Description, Date, Status, Type, rest)" /><ComboBoxItem Content="Alphabetical" />
+                  <ComboBoxItem Content="Original JSON order" /><ComboBoxItem Content="Custom order" /></ComboBox></StackPanel>
+              <StackPanel IsVisible="{Binding IsCustomOrder}" Spacing="4"><TextBlock Classes="muted" Text="Custom order: one column name per line. Unlisted columns follow in original order." />
+                <TextBox Text="{Binding CustomOrderText}" AcceptsReturn="True" Height="110" Width="380" HorizontalAlignment="Left" /></StackPanel>
+              <StackPanel Spacing="4"><TextBlock Classes="muted" Text="Null values" />
+                <ComboBox SelectedIndex="{Binding NullIndex}" Width="380"><ComboBoxItem Content="Leave blank" /><ComboBoxItem Content="Write the word null (missing fields stay blank)" /></ComboBox></StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- ===== History page ===== -->
+      <Grid IsVisible="{Binding IsHistoryPage}" Margin="24" RowDefinitions="Auto,*">
+        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12"><TextBlock Classes="h1" Text="Recent conversions" /><Button Grid.Column="1" Classes="soft" Content="Clear history" Command="{Binding ClearHistoryCommand}" /></Grid>
+        <ScrollViewer Grid.Row="1"><ItemsControl ItemsSource="{Binding History}"><ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="m:HistoryEntry"><Border Classes="card" Margin="0,0,0,8" Padding="14,10"><Grid ColumnDefinitions="*,Auto">
+            <StackPanel><TextBlock Text="{Binding FileName}" FontWeight="SemiBold" /><TextBlock Text="{Binding Summary}" Classes="muted" TextWrapping="Wrap" /><TextBlock Text="{Binding Output}" Classes="muted" FontSize="12" /></StackPanel>
+            <TextBlock Grid.Column="1" Text="{Binding WhenText}" Classes="muted" />
+          </Grid></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
+      </Grid>
+
+      <!-- ===== Log page ===== -->
+      <Grid IsVisible="{Binding IsLogPage}" Margin="24" RowDefinitions="Auto,*">
+        <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,12"><StackPanel><TextBlock Classes="h1" Text="Error log" /><TextBlock Classes="muted" Text="Warnings and errors from this session. Full technical details are saved to the log files." /></StackPanel>
+          <Button Grid.Column="1" Classes="soft" Content="Open log folder" Command="{Binding OpenLogFolderCommand}" Margin="0,0,8,0" /><Button Grid.Column="2" Classes="soft" Content="Clear" Command="{Binding ClearLogCommand}" /></Grid>
+        <ScrollViewer Grid.Row="1"><ItemsControl ItemsSource="{Binding LogEntries}"><ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="m:LogEntry"><Border Classes="card" Margin="0,0,0,6" Padding="12,8"><Grid ColumnDefinitions="70,80,*">
+            <TextBlock Text="{Binding WhenText}" Classes="muted" /><TextBlock Grid.Column="1" Text="{Binding Level}" FontWeight="SemiBold" /><TextBlock Grid.Column="2" Text="{Binding Message}" TextWrapping="Wrap" />
+          </Grid></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
+      </Grid>
+
+      <!-- Files bar (batch convert) -->
+      <Border VerticalAlignment="Bottom" IsVisible="{Binding ShowFilesBar}" Background="White" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="24,12">
+        <Grid ColumnDefinitions="Auto,*,Auto">
           <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
             <RadioButton GroupName="fmtB" Classes="seg" Content="Excel" IsChecked="{Binding IsExcel}" />
             <RadioButton GroupName="fmtB" Classes="seg" Content="CSV" IsChecked="{Binding IsCsv}" />
           </StackPanel>
-          <Grid Grid.Column="1" ColumnDefinitions="*,Auto,Auto" Margin="18,0,18,0" VerticalAlignment="Center">
-            <Border Background="{DynamicResource PageBrush}" CornerRadius="10" Padding="12,8">
-              <TextBlock Text="{Binding OutputDirectory}" TextTrimming="PrefixCharacterEllipsis" ToolTip.Tip="{Binding OutputDirectory}" />
-            </Border>
-            <Button Grid.Column="1" Classes="soft" Content="Choose folder" Command="{Binding BrowseOutputCommand}" Margin="8,0,0,0" />
-            <Button Grid.Column="2" Classes="soft" Content="Open" Command="{Binding OpenOutputFolderCommand}" Margin="8,0,0,0" />
-          </Grid>
-          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-            <Button Classes="soft" Content="Cancel" Command="{Binding CancelCommand}" IsVisible="{Binding IsBusy}" />
-            <Button Classes="primary" Content="Convert" Command="{Binding ConvertCommand}" />
-          </StackPanel>
-          <Grid Grid.Row="1" Grid.ColumnSpan="3" ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+          <Grid Grid.Column="1" ColumnDefinitions="*,Auto" Margin="18,0" VerticalAlignment="Center">
             <ProgressBar Value="{Binding ProgressPercent}" Maximum="100" Height="8" CornerRadius="4" Foreground="{DynamicResource SideBrush}" />
-            <TextBlock Grid.Column="1" Margin="14,0,0,0" Classes="muted">
-              <Run Text="{Binding StatusText}" /><Run Text="  " /><Run Text="{Binding ProgressText}" />
-            </TextBlock>
+            <TextBlock Grid.Column="1" Margin="12,0,0,0" Classes="muted"><Run Text="{Binding StatusText}" /><Run Text="  " /><Run Text="{Binding ProgressText}" /></TextBlock>
           </Grid>
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
+            <Button Classes="soft" Content="Cancel" Command="{Binding CancelCommand}" IsVisible="{Binding IsBusy}" />
+            <Button Classes="primary" Content="Convert files" Command="{Binding ConvertCommand}" />
+          </StackPanel>
         </Grid>
       </Border>
     </Grid>
