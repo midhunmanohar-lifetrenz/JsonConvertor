@@ -49,7 +49,7 @@ Empty and null values stay empty: masking never invents data.
 
 1. Open **Files** and drag files in, or click **Browse files**. Supported types are `.json`, `.jsonl`, `.ndjson` and `.txt`.
 2. Each file is checked straight away. Invalid files show the reason in red and are skipped.
-3. Click a file to see it on **File preview**. If a file has several lists, pick one there.
+3. Click a file in the list: its preview appears right underneath. If a file has several lists, pick one under **Data array**.
 4. Choose **Excel** or **CSV** at the bottom, click **Convert files**, and pick a folder.
 
 If a file with the same name already exists in that folder, you'll be asked before it's replaced.

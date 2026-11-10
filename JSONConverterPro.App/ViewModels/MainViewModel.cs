@@ -119,7 +119,7 @@ public partial class MainViewModel : ObservableObject
     public bool IsSettingsPage => CurrentPage == "Settings";
     public bool IsHistoryPage => CurrentPage == "History";
     public bool IsLogPage => CurrentPage == "Log";
-    public bool ShowFilesBar => IsFilesPage || IsPreviewPage;
+    public bool ShowFilesBar => IsFilesPage;
     public bool IsCustomOrder => OrderIndex == 3;
     public bool ShowDelimiter => !IsExcel;
     public bool ShowSheetName => IsExcel;

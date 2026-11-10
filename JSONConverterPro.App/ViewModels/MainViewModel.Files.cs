@@ -74,7 +74,7 @@ public partial class MainViewModel
                 {
                     item.Status = FileStatus.NeedsSelection; item.StatusText = "Choose data array";
                     item.SelectedSource = null; item.RecordsText = "Several arrays found";
-                    Banner($"'{item.Name}' has several data arrays. Open Preview and choose the one to export.", "warning", false);
+                    Banner($"'{item.Name}' has several data arrays. Select it and choose the one to export below the file list.", "warning", false);
                 }
                 else
                 {
@@ -258,7 +258,7 @@ public partial class MainViewModel
         if (targets.Count == 0)
         {
             var pending = Files.FirstOrDefault(f => f.Status == FileStatus.NeedsSelection);
-            if (pending != null) Banner($"Choose the data array for '{pending.Name}' in Preview first.", "warning", false);
+            if (pending != null) Banner($"Choose the data array for '{pending.Name}' below the file list first.", "warning", false);
             else Banner(Files.Count == 0 ? "Add at least one JSON file to convert." : "None of the added files can be converted. Remove them and add a valid file.", "warning", false);
             return;
         }

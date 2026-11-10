@@ -410,7 +410,7 @@ public class UiTests
         Assert.Equal(FileStatus.Invalid, byName["91-empty.json"].Status);
         Assert.Equal(FileStatus.Invalid, byName["notes.docx"].Status);
 
-        vm.CurrentPage = "Preview";
+        vm.CurrentPage = "Files";
         Settle(vm);
         Shot(win, "03-preview");
         Assert.True(vm.HasPreview);

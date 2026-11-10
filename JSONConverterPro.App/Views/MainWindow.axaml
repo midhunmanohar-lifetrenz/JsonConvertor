@@ -24,7 +24,6 @@
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="28,0,0,0" VerticalAlignment="Center">
           <Button Classes="tab" Classes.active="{Binding IsConvertPage}" Command="{Binding NavigateCommand}" CommandParameter="Convert" Content="Convert" />
           <Button Classes="tab" Classes.active="{Binding IsFilesPage}" Command="{Binding NavigateCommand}" CommandParameter="Files" Content="Files" />
-          <Button Classes="tab" Classes.active="{Binding IsPreviewPage}" Command="{Binding NavigateCommand}" CommandParameter="Preview" Content="File preview" />
           <Button Classes="tab" Classes.active="{Binding IsSettingsPage}" Command="{Binding NavigateCommand}" CommandParameter="Settings" Content="Settings" />
           <Button Classes="tab" Classes.active="{Binding IsHistoryPage}" Command="{Binding NavigateCommand}" CommandParameter="History" Content="History" />
           <Button Classes="tab" Classes.active="{Binding IsLogPage}" Command="{Binding NavigateCommand}" CommandParameter="Log" Content="Error log" />
@@ -160,84 +159,86 @@
         </Grid>
       </Grid>
 
-      <!-- ===== Files page ===== -->
-      <Grid IsVisible="{Binding IsFilesPage}" RowDefinitions="*">
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
-          <StackPanel Margin="24,24,24,90" Spacing="16">
-            <Grid ColumnDefinitions="*,16,*,16,*">
-              <Border Classes="card"><StackPanel><TextBlock Classes="muted" Text="Files" /><TextBlock Classes="stat" Text="{Binding FilesCountText}" /></StackPanel></Border>
-              <Border Grid.Column="2" Classes="card"><StackPanel><TextBlock Classes="muted" Text="Records" /><TextBlock Classes="stat" Text="{Binding RecordsTotalText}" /></StackPanel></Border>
-              <Border Grid.Column="4" Classes="card"><StackPanel><TextBlock Classes="muted" Text="Columns (selected file)" /><TextBlock Classes="stat" Text="{Binding ColumnsText}" /></StackPanel></Border>
-            </Grid>
+      <!-- ===== Files page: list on top, preview of the selected file underneath ===== -->
+      <Grid IsVisible="{Binding IsFilesPage}" Margin="24,16,24,78" RowDefinitions="Auto,Auto,*">
 
-            <Border x:Name="DropZone" Classes="drop">
-              <StackPanel HorizontalAlignment="Center" Spacing="8">
-                <TextBlock Text="Drop JSON or TXT files here" Classes="h1" HorizontalAlignment="Center" />
-                <TextBlock Text="Drag in as many files as you like. Large files are streamed, not loaded into memory." Classes="muted" HorizontalAlignment="Center" />
-                <Button Classes="primary" Content="Browse files" Command="{Binding AddFilesCommand}" HorizontalAlignment="Center" Margin="0,8,0,0" />
+        <!-- Compact drop zone with totals -->
+        <Border x:Name="DropZone" Classes="drop" Padding="16,12">
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+              <Button Classes="primary" Content="Browse files" Command="{Binding AddFilesCommand}" Padding="18,8" />
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="or drop JSON, JSON Lines or TXT files here" FontWeight="SemiBold" />
+                <TextBlock Text="Add as many as you like. Large files are streamed, not loaded into memory." Classes="muted" FontSize="12" />
               </StackPanel>
-            </Border>
+            </StackPanel>
+            <TextBlock Grid.Column="1" Classes="muted" VerticalAlignment="Center" Margin="12,0" IsVisible="{Binding HasFiles}">
+              <Run Text="{Binding FilesCountText}" /><Run Text=" files · " /><Run Text="{Binding RecordsTotalText}" /><Run Text=" records" />
+            </TextBlock>
+            <Button Grid.Column="2" Classes="soft" Content="Clear all" Command="{Binding ClearFilesCommand}" IsVisible="{Binding HasFiles}" />
+          </Grid>
+        </Border>
 
-            <Border Classes="card" IsVisible="{Binding HasFiles}">
-              <StackPanel Spacing="4">
-                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
-                  <TextBlock Classes="h2" Text="Your files" />
-                  <Button Grid.Column="1" Classes="soft" Content="Clear all" Command="{Binding ClearFilesCommand}" />
-                </Grid>
-                <ItemsControl ItemsSource="{Binding Files}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="m:FileItem">
-                      <Border Classes="row" Classes.selected="{Binding IsSelected}" Tag="{Binding}" PointerPressed="OnFileRowPressed">
-                        <Grid ColumnDefinitions="*,90,110,150,40">
-                          <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource ErrBrush}" IsVisible="{Binding HasDetail}" TextWrapping="Wrap" FontSize="12" />
-                          </StackPanel>
-                          <TextBlock Grid.Column="1" Text="{Binding SizeText}" Classes="muted" VerticalAlignment="Center" />
-                          <TextBlock Grid.Column="2" Text="{Binding RecordsText}" Classes="muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                          <Border Grid.Column="3" HorizontalAlignment="Left" VerticalAlignment="Center" CornerRadius="8" Padding="10,3"
-                                  Background="{Binding Status, Converter={x:Static conv:StatusBrushConverter.Instance}, ConverterParameter=bg}">
-                            <TextBlock Text="{Binding StatusText}" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="{Binding Status, Converter={x:Static conv:StatusBrushConverter.Instance}, ConverterParameter=fg}" />
-                          </Border>
-                          <Button Grid.Column="4" Classes="icon" Content="✕" Tag="{Binding}" Click="OnRemoveFileClick" ToolTip.Tip="Remove file" />
-                        </Grid>
+        <!-- File list (scrolls on its own so the preview always stays visible) -->
+        <Border Grid.Row="1" Classes="card" Padding="8,6" Margin="0,12,0,0" IsVisible="{Binding HasFiles}">
+          <ScrollViewer MaxHeight="210" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Files}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="m:FileItem">
+                  <Border Classes="row" Classes.selected="{Binding IsSelected}" Tag="{Binding}" PointerPressed="OnFileRowPressed" Padding="12,7">
+                    <Grid ColumnDefinitions="*,90,130,150,40">
+                      <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource ErrBrush}" IsVisible="{Binding HasDetail}" TextWrapping="Wrap" FontSize="12" />
+                      </StackPanel>
+                      <TextBlock Grid.Column="1" Text="{Binding SizeText}" Classes="muted" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="2" Text="{Binding RecordsText}" Classes="muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                      <Border Grid.Column="3" HorizontalAlignment="Left" VerticalAlignment="Center" CornerRadius="8" Padding="10,3"
+                              Background="{Binding Status, Converter={x:Static conv:StatusBrushConverter.Instance}, ConverterParameter=bg}">
+                        <TextBlock Text="{Binding StatusText}" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{Binding Status, Converter={x:Static conv:StatusBrushConverter.Instance}, ConverterParameter=fg}" />
                       </Border>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-              </StackPanel>
-            </Border>
-          </StackPanel>
-        </ScrollViewer>
-      </Grid>
+                      <Button Grid.Column="4" Classes="icon" Content="✕" Tag="{Binding}" Click="OnRemoveFileClick" ToolTip.Tip="Remove file" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Border>
 
-      <!-- ===== File preview page ===== -->
-      <Grid IsVisible="{Binding IsPreviewPage}" Margin="24,24,24,90" RowDefinitions="Auto,Auto,*">
-        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
-          <StackPanel>
-            <TextBlock Classes="h1" Text="{Binding SelectedFile.Name, FallbackValue='File preview'}" />
-            <TextBlock Classes="muted" Text="{Binding PreviewTotalsText}" />
+        <!-- Preview of the selected file -->
+        <Grid Grid.Row="2" Margin="0,14,0,0" RowDefinitions="Auto,Auto,*" IsVisible="{Binding HasFiles}">
+          <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Classes="h2"><Run Text="Preview: " /><Run Text="{Binding SelectedFile.Name, FallbackValue=''}" /></TextBlock>
+              <TextBlock Classes="muted" Text="{Binding PreviewTotalsText}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+              <TextBlock Text="Data array" Classes="muted" VerticalAlignment="Center" IsVisible="{Binding ShowCandidates}" />
+              <ComboBox ItemsSource="{Binding Candidates}" SelectedItem="{Binding SelectedCandidate}" MinWidth="260" IsVisible="{Binding ShowCandidates}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="core:DataSourceCandidate"><TextBlock Text="{Binding Display}" /></DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <Button Classes="soft" Content="Refresh" Command="{Binding RefreshPreviewCommand}" />
+            </StackPanel>
+          </Grid>
+          <StackPanel Grid.Row="1" Spacing="4">
+            <ProgressBar IsIndeterminate="True" IsVisible="{Binding PreviewBusy}" Height="4" Margin="0,0,0,6" />
+            <TextBlock Text="{Binding PreviewMessage}" Foreground="{DynamicResource WarnBrush}" TextWrapping="Wrap" IsVisible="{Binding !HasPreview}" Margin="0,0,0,6" />
+            <TextBlock Text="{Binding PreviewWarnings}" Foreground="{DynamicResource WarnBrush}" TextWrapping="Wrap" FontSize="12" />
           </StackPanel>
-          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-            <TextBlock Text="Data array" Classes="muted" VerticalAlignment="Center" IsVisible="{Binding ShowCandidates}" />
-            <ComboBox ItemsSource="{Binding Candidates}" SelectedItem="{Binding SelectedCandidate}" MinWidth="280" IsVisible="{Binding ShowCandidates}">
-              <ComboBox.ItemTemplate>
-                <DataTemplate x:DataType="core:DataSourceCandidate"><TextBlock Text="{Binding Display}" /></DataTemplate>
-              </ComboBox.ItemTemplate>
-            </ComboBox>
-            <Button Classes="soft" Content="Refresh" Command="{Binding RefreshPreviewCommand}" />
-          </StackPanel>
+          <DataGrid x:Name="PreviewGrid" Grid.Row="2" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="False"
+                    HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasPreview}" />
+          <Border Grid.Row="2" Classes="card" IsVisible="{Binding !HasPreview}">
+            <TextBlock Classes="muted" Text="Click a file in the list to preview it here." HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
         </Grid>
-        <StackPanel Grid.Row="1" Spacing="6" Margin="0,0,0,8">
-          <ProgressBar IsIndeterminate="True" IsVisible="{Binding PreviewBusy}" Height="4" />
-          <TextBlock Text="{Binding PreviewMessage}" Foreground="{DynamicResource WarnBrush}" TextWrapping="Wrap" IsVisible="{Binding !HasPreview}" />
-          <TextBlock Text="{Binding PreviewWarnings}" Foreground="{DynamicResource WarnBrush}" TextWrapping="Wrap" FontSize="12" />
-        </StackPanel>
-        <DataGrid x:Name="PreviewGrid" Grid.Row="2" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="False"
-                  HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasPreview}" />
-        <TextBlock Grid.Row="2" Classes="muted" Text="Add a file on the Files page to preview its data." HorizontalAlignment="Center" VerticalAlignment="Center"
-                   IsVisible="{Binding !HasFiles}" />
+
+        <Border Grid.Row="2" Classes="card" Margin="0,14,0,0" IsVisible="{Binding !HasFiles}">
+          <TextBlock Classes="muted" Text="Add files to see their status and a preview here." HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
       </Grid>
 
       <!-- ===== Settings page ===== -->
