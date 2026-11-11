@@ -41,7 +41,7 @@ jobs:
             **/results.trx
 
   macos-arm64:
-    runs-on: macos-14
+    runs-on: macos-latest   # Apple Silicon runner
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
