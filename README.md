@@ -62,7 +62,7 @@ dotnet run --project JSONConverterPro.App
 | Push tag `v1.0.0` | `.github/workflows/release.yml` builds and smoke-tests everything on GitHub and attaches it to a release |
 
 Every build is self-contained, single-file and Release-configured.
-- **macOS:** the native libraries are bundled next to the executable inside the `.app`. The `.app` is ad-hoc signed.
+- **macOS:** the native libraries are bundled next to the executable inside the `.app`. The `.app` is ad-hoc signed, not notarized, so users must allow it once in **System Settings → Privacy & Security → Open Anyway**. Notarization needs a **Developer ID Application** certificate from the Apple team's Account Holder or Admin; an *Apple Development* certificate can't be used.
   To sign and notarize, set `CODESIGN_IDENTITY="Developer ID Application: …"` and run `xcrun notarytool`.
 - **Windows:** the EXE is unsigned until a code-signing certificate is added.
 

@@ -30,7 +30,9 @@ First release, for Windows 10/11 (x64) and macOS 11+ (Apple Silicon).
 
 - Excel output for files of 100 MB or more is best-effort, because Excel workbooks are built in memory. CSV has no such limit.
 - Excel cells hold at most 32,767 characters. Longer values are truncated, with a warning.
-- The apps are not code-signed yet. Windows SmartScreen and macOS Gatekeeper show a one-time warning, as described in the user guide.
+- The apps are not code-signed yet, so each machine shows a one-time warning:
+  - **Windows:** SmartScreen → **More info → Run anyway**.
+  - **Mac:** "could not verify" → **Done**, then **System Settings → Privacy & Security → Open Anyway**. Right-click → Open no longer works on macOS 15 and later.
 - Hash masking uses a key that changes each time the app restarts, so codes match within a session but not across sessions.
 
 ## Verification

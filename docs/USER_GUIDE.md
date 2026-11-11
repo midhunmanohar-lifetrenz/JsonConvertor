@@ -12,7 +12,8 @@ Everything runs on your computer. Nothing is uploaded, and there is no account o
 
 **macOS 11 or later (Apple Silicon: M1, M2, M3, M4)**
 - Open `JSONConverterPro-1.0.0-macos-arm64.dmg` and drag **JSON Converter Pro** into **Applications**.
-- The first time, **right-click the app → Open → Open**. After that it opens normally.
+- The first time, macOS says it "could not verify" the app, because it isn't notarized by Apple yet. Click **Done** (not *Move to Bin*), then open **System Settings → Privacy & Security**, scroll to **Security**, click **Open Anyway** next to *"JSON Converter Pro" was blocked*, enter your Mac password and confirm. After that it opens normally.
+- Terminal alternative: `xattr -dr com.apple.quarantine "/Applications/JSON Converter Pro.app"`
 
 You don't need .NET, Excel or Python. Everything the app needs is included.
 
