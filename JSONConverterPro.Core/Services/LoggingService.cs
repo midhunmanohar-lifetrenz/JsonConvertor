@@ -17,7 +17,14 @@ public sealed class FileLoggerProvider : ILoggerProvider
     {
         _dir = directory ?? DefaultDirectory;
         _sink = sink;
-        try { Directory.CreateDirectory(_dir); } catch { /* logging must never crash the app */ }
+        try
+        {
+            Directory.CreateDirectory(_dir);
+            // Keep 30 days of logs.
+            foreach (var old in Directory.EnumerateFiles(_dir, "app-*.log"))
+                if (File.GetLastWriteTimeUtc(old) < DateTime.UtcNow.AddDays(-30)) File.Delete(old);
+        }
+        catch { /* logging must never crash the app */ }
     }
 
     public string LogDirectory => _dir;

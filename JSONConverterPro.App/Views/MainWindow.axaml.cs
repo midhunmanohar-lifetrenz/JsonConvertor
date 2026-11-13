@@ -110,6 +110,7 @@ public partial class MainWindow : Window
         string? text = null;
         try { if (Clipboard != null) text = await Clipboard.TryGetTextAsync(); } catch { /* clipboard unavailable */ }
         if (string.IsNullOrWhiteSpace(text)) { _vm.ShowError("The clipboard doesn't contain any text. Copy some JSON first."); return; }
+        if (text.Length > MainViewModel.MaxEditorChars) { await _vm.MoveLargePasteToFilesAsync(text); return; }
         _vm.CurrentPage = "Convert";
         _vm.PasteText = text;
     }

@@ -6,12 +6,12 @@ Everything runs on your computer. Nothing is uploaded, and there is no account o
 ## Install
 
 **Windows 10 / 11 (64-bit)**
-- **Installer:** run `JSONConverterPro-1.0.0-win-x64-setup.exe`. It installs for your user only, so no admin rights are needed. Uninstall it from *Settings → Apps*.
-- **Portable:** unzip `JSONConverterPro-1.0.0-win-x64-portable.zip` and run `JSONConverterPro.exe`. Nothing is installed.
+- **Installer:** run `JSONConverterPro-1.0.1-win-x64-setup.exe`. It installs for your user only, so no admin rights are needed. Uninstall it from *Settings → Apps*.
+- **Portable:** unzip `JSONConverterPro-1.0.1-win-x64-portable.zip` and run `JSONConverterPro.exe`. Nothing is installed.
 - If SmartScreen says "Windows protected your PC", choose **More info → Run anyway**. This appears because the app is not code-signed yet.
 
-**macOS 11 or later (Apple Silicon: M1, M2, M3, M4)**
-- Open `JSONConverterPro-1.0.0-macos-arm64.dmg` and drag **JSON Converter Pro** into **Applications**.
+**macOS 11 or later**
+- Apple Silicon Macs (M1 and later) use `JSONConverterPro-1.0.1-macos-arm64.dmg`. Intel Macs use `JSONConverterPro-1.0.1-macos-x64.dmg`. Open it and drag **JSON Converter Pro** into **Applications**.
 - The first time, macOS says it "could not verify" the app, because it isn't notarized by Apple yet. Click **Done** (not *Move to Bin*), then open **System Settings → Privacy & Security**, scroll to **Security**, click **Open Anyway** next to *"JSON Converter Pro" was blocked*, enter your Mac password and confirm. After that it opens normally.
 - Terminal alternative: `xattr -dr com.apple.quarantine "/Applications/JSON Converter Pro.app"`
 
@@ -19,7 +19,7 @@ You don't need .NET, Excel or Python. Everything the app needs is included.
 
 ## Convert pasted JSON (the start screen)
 
-1. **Paste** your JSON into the large text box (Ctrl+V on Windows, ⌘+V on Mac). You can also type, or drop a small `.json` file onto the window.
+1. **Paste** your JSON into the large text box (Ctrl+V on Windows, ⌘+V on Mac). You can also type, or drop a small `.json` file onto the window. Very large text (more than about 5 MB) is moved to the **Files** page automatically, because the editor would be slow with it.
 2. The **live preview** appears underneath as soon as the JSON is valid. The badge shows how many records and columns were found.
    - If the badge is red, the JSON has a mistake. Click **Go to error** to jump to the line.
    - If the JSON contains several lists, choose the one you want under **Data array**.
@@ -53,7 +53,7 @@ Empty and null values stay empty: masking never invents data.
 3. Click a file in the list: its preview appears right underneath. If a file has several lists, pick one under **Data array**.
 4. Choose **Excel** or **CSV** at the bottom, click **Convert files**, and pick a folder.
 
-If a file with the same name already exists in that folder, you'll be asked before it's replaced.
+If a file with the same name already exists in that folder, you'll be asked before it's replaced. When you convert several files at once you are asked once, and the answer is used for the rest of the batch.
 
 ## Settings
 
@@ -63,9 +63,9 @@ If a file with the same name already exists in that folder, you'll be asked befo
 | **Sheet name** | Name of the Excel worksheet. More sheets are added automatically after 1,048,575 rows. |
 | **CSV delimiter / encoding** | Comma, semicolon or tab, and UTF-8 with BOM (best for Excel), UTF-8, or UTF-16. |
 | **Array separator** | The text placed between values when a list is combined into one cell (default `; `). |
-| **Protect CSV from formula injection** | Adds `'` before text starting with `=`, `+`, `-` or `@`, so Excel can't run it as a formula. Numbers are never changed. |
+| **Protect CSV from formula injection** | Adds `'` before text starting with `=`, `+`, `-` or `@`, so Excel can't run it as a formula. Numbers, plain dashes (`-`) and phone-style values (`+91 98765 43210`) are never changed. |
 | **Flatten nested objects** | `{"patient":{"age":35}}` becomes a column named `patient.age`. |
-| **Arrays** | Combine into one cell · keep as JSON text · one row per item · separate sheet per list. |
+| **Arrays** | Combine into one cell · keep as JSON text · one row per item · separate sheet per list. With *one row per item*, a record that has two or more lists gets a row for every combination of their items, so totals summed in Excel can be too high; the app warns you, and *separate sheet per list* avoids it. |
 | **Format ISO dates** | `2024-03-15` and `2024-03-15T10:30:00` become real Excel dates. Ambiguous values such as `01/02/2024` stay as text. |
 | **Column order** | Smart (ID, Code, Name, Description, Date, Status, Type first), alphabetical, original, or your own list. |
 | **Null values** | Leave blank, or write the word `null`. Missing fields always stay blank. |
@@ -79,7 +79,9 @@ All settings are remembered the next time you open the app.
 - Nothing is silently dropped. Every field becomes a column, and lists of objects keep one column per field.
 - If two fields would get the same column name, the second one gets a ` (2)` suffix instead of overwriting the first.
 - A cancelled or failed conversion never leaves a half-written file behind.
-- Pasted JSON is held in a temporary file only while the app is open, and is deleted when you quit.
+- Pasted JSON is held in a temporary file only while the app is open, and is deleted when you quit. Each open copy of the app keeps its own private folder.
+- Damaged characters (for example half of an emoji) are replaced with `�` and reported as a warning; the rest of the file is still converted.
+- Log files older than 30 days are deleted automatically.
 
 ## Troubleshooting
 

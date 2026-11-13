@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds self-contained single-file releases.
-#   ./publish.sh            -> macOS Apple Silicon (.app + .dmg) and Windows x64 (.exe)
-#   ./publish.sh mac        -> macOS only
+#   ./publish.sh            -> macOS Apple Silicon and Intel (.app + .dmg) and Windows x64 (.exe)
+#   ./publish.sh mac        -> macOS only (both); mac-arm64 / mac-x64 for one
 #   ./publish.sh win        -> Windows only
 # Output goes to ./dist
 set -euo pipefail
@@ -30,16 +30,20 @@ checksums() {
   (cd dist/release && rm -f SHA256SUMS.txt && shasum -a 256 *.zip *.dmg *.exe 2>/dev/null > SHA256SUMS.txt; cat SHA256SUMS.txt)
 }
 
+# publish_mac arm64|x64   (arm64 = Apple Silicon, x64 = Intel)
 publish_mac() {
-  echo "==> macOS arm64 (Apple Silicon)"
-  rm -rf dist/osx-arm64 "dist/JSON Converter Pro.app"
-  dotnet publish "$PROJECT" "${COMMON[@]}" -r osx-arm64 -o dist/osx-arm64
-  APP="dist/JSON Converter Pro.app"
+  local ARCH="$1"
+  echo "==> macOS ${ARCH}"
+  # The Apple Silicon app keeps its usual place; the Intel one is built in its own folder.
+  local APP="dist/JSON Converter Pro.app"
+  [ "$ARCH" = "x64" ] && APP="dist/intel/JSON Converter Pro.app"
+  rm -rf "dist/osx-${ARCH}" "$APP"
+  dotnet publish "$PROJECT" "${COMMON[@]}" -r "osx-${ARCH}" -o "dist/osx-${ARCH}"
   mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-  cp dist/osx-arm64/JSONConverterPro "$APP/Contents/MacOS/JSONConverterPro"
+  cp dist/osx-${ARCH}/JSONConverterPro "$APP/Contents/MacOS/JSONConverterPro"
   chmod +x "$APP/Contents/MacOS/JSONConverterPro"
   # On macOS the native libraries (Avalonia, Skia, HarfBuzz) are not embedded in the single file; ship them beside it.
-  cp dist/osx-arm64/*.dylib "$APP/Contents/MacOS/"
+  cp dist/osx-${ARCH}/*.dylib "$APP/Contents/MacOS/"
   cp JSONConverterPro.App/Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
   cp THIRD-PARTY-NOTICES.txt "$APP/Contents/Resources/"
   cat > "$APP/Contents/Info.plist" <<PLIST
@@ -62,25 +66,27 @@ publish_mac() {
   </dict></array>
 </dict></plist>
 PLIST
-  # Ad-hoc signature: required for arm64 binaries to run. Replace with a Developer ID identity to distribute widely.
+  # Ad-hoc signature: required for Apple Silicon binaries to run. Replace with a Developer ID identity to distribute widely.
   SIGN_ID="${CODESIGN_IDENTITY:--}"
   codesign --force --deep --sign "$SIGN_ID" "$APP"
   codesign --verify --deep --strict "$APP" && echo "    signature OK (identity: $SIGN_ID)"
   mkdir -p dist/release
-  rm -f "dist/release/JSONConverterPro-${VERSION}-macos-arm64.dmg" "dist/JSONConverterPro-${VERSION}-macos-arm64.dmg"
+  rm -f "dist/release/JSONConverterPro-${VERSION}-macos-${ARCH}.dmg" "dist/JSONConverterPro-${VERSION}-macos-${ARCH}.dmg"
   STAGE="$(mktemp -d)"
   cp -R "$APP" "$STAGE/"
   cp docs/USER_GUIDE.md THIRD-PARTY-NOTICES.txt "$STAGE/"
   ln -s /Applications "$STAGE/Applications"
-  hdiutil create -quiet -volname "JSON Converter Pro" -srcfolder "$STAGE" -ov -format UDZO "dist/release/JSONConverterPro-${VERSION}-macos-arm64.dmg"
+  hdiutil create -quiet -volname "JSON Converter Pro" -srcfolder "$STAGE" -ov -format UDZO "dist/release/JSONConverterPro-${VERSION}-macos-${ARCH}.dmg"
   rm -rf "$STAGE"
   echo "    $APP"
-  echo "    dist/release/JSONConverterPro-${VERSION}-macos-arm64.dmg"
+  echo "    dist/release/JSONConverterPro-${VERSION}-macos-${ARCH}.dmg"
 }
 
 case "$TARGET" in
   win) publish_win ;;
-  mac) publish_mac ;;
-  all) publish_mac; publish_win; checksums ;;
-  *) echo "usage: $0 [mac|win|all]"; exit 1 ;;
+  mac) publish_mac arm64; publish_mac x64 ;;
+  mac-arm64) publish_mac arm64 ;;
+  mac-x64) publish_mac x64 ;;
+  all) publish_mac arm64; publish_mac x64; publish_win; checksums ;;
+  *) echo "usage: $0 [mac|mac-arm64|mac-x64|win|all]"; exit 1 ;;
 esac

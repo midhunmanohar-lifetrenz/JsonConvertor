@@ -1,15 +1,41 @@
-# JSON Converter Pro 1.0.0
+# JSON Converter Pro 1.0.1
 
-First release, for Windows 10/11 (x64) and macOS 11+ (Apple Silicon).
+Maintenance release for Windows 10/11 (x64) and macOS 11+ (Apple Silicon and Intel). It fixes the issues found in a full review of 1.0.0.
 
 ## Downloads
 
 | File | For |
 |---|---|
-| `JSONConverterPro-1.0.0-win-x64-setup.exe` | Windows installer (per user, no admin rights) |
-| `JSONConverterPro-1.0.0-win-x64-portable.zip` | Windows, no install |
-| `JSONConverterPro-1.0.0-macos-arm64.dmg` | Mac with Apple Silicon |
+| `JSONConverterPro-1.0.1-win-x64-setup.exe` | Windows installer (per user, no admin rights) |
+| `JSONConverterPro-1.0.1-win-x64-portable.zip` | Windows, no install |
+| `JSONConverterPro-1.0.1-macos-arm64.dmg` | Mac with Apple Silicon (M1 and later) |
+| `JSONConverterPro-1.0.1-macos-x64.dmg` | Mac with an Intel processor |
 | `SHA256SUMS.txt` | Checksums to verify the downloads |
+
+## Fixed in 1.0.1
+
+Data integrity:
+- Two copies of the app open at the same time no longer share pasted data. Each copy has its own private temporary folder.
+- Linked CSV files whose list names differ only by letter case (`Items`, `items`) no longer overwrite each other.
+- A field with an empty name that holds an object no longer overwrites a field of the same name beside it.
+- "One row per item" now warns when a record has two or more lists, because every combination of their items is written and totals can be inflated.
+- Download is blocked until edited text has been checked again, so it can't export the previous text.
+
+Robustness:
+- CSV formula protection no longer changes plain dashes (`-`) or phone-style values (`+91 98765 43210`).
+- A damaged character (half of an emoji) is replaced with `�` and reported, instead of stopping the conversion.
+- JSON Lines files with very long lines (more than 128 KB each) are recognised.
+- Excluding a column no longer blocks the export when a linked list contains only that column.
+- A list named `history` gets the sheet name `history_`, because Excel reserves "History".
+
+Other:
+- Very large pasted text (more than about 5 MB) goes to the Files page instead of the editor.
+- Converting several files asks about replacing existing files once per batch.
+- Excel shows milliseconds in date-times and keeps trailing zeros in decimals (`5.0`).
+- Lists inside lists of objects keep their grouping when combined into one cell: `[a; b]; c`.
+- Controls have names for screen readers.
+- Log files older than 30 days are deleted.
+- New build for Intel Macs.
 
 ## Features
 
@@ -37,7 +63,7 @@ First release, for Windows 10/11 (x64) and macOS 11+ (Apple Silicon).
 
 ## Verification
 
-- 63 automated tests pass:
+- 84 automated tests pass:
   - Engine: flattening, ordering, masking, encodings, JSON Lines, a 10 MB file converted to both formats, and a 100 MB file streamed with a memory check.
   - Headless UI: paste flow, Columns view, presets, files flow, dark theme, privacy cleanup.
-- The Windows build passed its initial check on Windows. The macOS build was launched and stayed running on Apple Silicon.
+- Version 1.0.0 was installed and used on Windows and on Apple Silicon. The 1.0.1 Mac builds were launched on Apple Silicon (the Intel build through Rosetta); 1.0.1 has not yet been run on Windows or on a real Intel Mac.

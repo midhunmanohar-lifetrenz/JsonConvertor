@@ -273,6 +273,8 @@ public partial class MainViewModel
         int ok = 0, failed = 0, cancelled = 0;
         var lastMessage = "";
         var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        bool? replaceAll = null;   // in a batch, the first answer about existing files applies to the rest
+        bool many = targets.Count > 1;
 
         try
         {
@@ -296,11 +298,18 @@ public partial class MainViewModel
                 {
                     InputPath = file.Path, Source = file.SelectedSource!, Settings = settings, OutputDirectory = outDir,
                     OutputBaseName = unique,
-                    ConfirmOverwrite = existing => Dispatcher.UIThread.InvokeAsync(() =>
-                        _dialogs.ConfirmAsync("Replace existing file?",
-                            existing.Count == 1 ? $"'{Path.GetFileName(existing[0])}' already exists in that folder. Do you want to replace it?"
-                                                : $"{existing.Count} files already exist in that folder. Do you want to replace them?",
-                            "Replace", "Keep existing")).GetAwaiter().GetResult()
+                    ConfirmOverwrite = existing =>
+                    {
+                        if (replaceAll is bool decided) return decided;
+                        bool answer = Dispatcher.UIThread.InvokeAsync(() =>
+                            _dialogs.ConfirmAsync(many ? "Replace existing files?" : "Replace existing file?",
+                                (existing.Count == 1 ? $"'{Path.GetFileName(existing[0])}' already exists in that folder. Do you want to replace it?"
+                                                     : $"{existing.Count} files already exist in that folder. Do you want to replace them?")
+                                + (many ? " Your answer is used for the other files in this batch too." : ""),
+                                many ? "Replace all" : "Replace", many ? "Keep all existing" : "Keep existing")).GetAwaiter().GetResult();
+                        if (many) replaceAll = answer;
+                        return answer;
+                    }
                 };
                 var result = await Task.Run(() => _conv.Convert(req, progress, cts.Token));
                 lastMessage = result.Message;

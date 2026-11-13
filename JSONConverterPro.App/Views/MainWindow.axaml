@@ -37,7 +37,7 @@
       <Grid ColumnDefinitions="*,Auto,Auto">
         <TextBlock Text="{Binding BannerText}" TextWrapping="Wrap" VerticalAlignment="Center" FontWeight="Medium" />
         <Button Grid.Column="1" Classes="soft" Content="Open folder" Command="{Binding OpenOutputFolderCommand}" IsVisible="{Binding BannerHasFolder}" Margin="12,0,0,0" />
-        <Button Grid.Column="2" Classes="icon" Content="✕" Command="{Binding DismissBannerCommand}" Margin="6,0,0,0" />
+        <Button Grid.Column="2" Classes="icon" Content="✕" AutomationProperties.Name="Dismiss message" ToolTip.Tip="Dismiss" Command="{Binding DismissBannerCommand}" Margin="6,0,0,0" />
       </Grid>
     </Border>
 
@@ -56,7 +56,7 @@
                 <Button Classes="icon" Content="Clear" Command="{Binding ClearPasteCommand}" />
               </StackPanel>
             </Grid>
-            <TextBox x:Name="PasteBox" Grid.Row="1" Text="{Binding PasteText}" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap"
+            <TextBox x:Name="PasteBox" AutomationProperties.Name="JSON text to convert" Grid.Row="1" Text="{Binding PasteText}" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap"
                      Watermark='{}{ "paste": "your JSON here" }   (Ctrl+V or ⌘+V)'
                      FontFamily="Menlo,Consolas,Courier New,monospace" FontSize="12" BorderThickness="0" Background="Transparent"
                      ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" Padding="14,4" />
@@ -73,7 +73,7 @@
           </StackPanel>
           <TextBlock Grid.Column="1" Text="{Binding PasteWarnings}" Classes="muted" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
           <TextBlock Grid.Column="2" Text="Data array" Classes="muted" VerticalAlignment="Center" Margin="0,0,8,0" IsVisible="{Binding ShowPasteCandidates}" />
-          <ComboBox Grid.Column="3" ItemsSource="{Binding PasteCandidates}" SelectedItem="{Binding SelectedPasteCandidate}" MinWidth="260" IsVisible="{Binding ShowPasteCandidates}" Margin="0,0,10,0">
+          <ComboBox Grid.Column="3" AutomationProperties.Name="Data array to convert" ItemsSource="{Binding PasteCandidates}" SelectedItem="{Binding SelectedPasteCandidate}" MinWidth="260" IsVisible="{Binding ShowPasteCandidates}" Margin="0,0,10,0">
             <ComboBox.ItemTemplate>
               <DataTemplate x:DataType="core:DataSourceCandidate"><TextBlock Text="{Binding Display}" /></DataTemplate>
             </ComboBox.ItemTemplate>
@@ -89,14 +89,14 @@
               <Button Classes="tab" Classes.active="{Binding IsColumnsTab}" Content="{Binding ColumnsTabTitle}" Command="{Binding ShowColumnsTabCommand}" />
             </StackPanel>
             <TextBlock Grid.Column="1" Text="{Binding PasteRowsText}" Classes="muted" VerticalAlignment="Center" Margin="12,0" IsVisible="{Binding IsPreviewTab}" />
-            <TextBox Grid.Column="2" Text="{Binding PasteSearch}" Watermark="Search rows" Width="200" Margin="0,0,8,0" IsVisible="{Binding IsPreviewTab}" />
-            <ComboBox Grid.Column="3" SelectedIndex="{Binding PasteRowsIndex}" Width="150" IsVisible="{Binding IsPreviewTab}" ToolTip.Tip="How many records to load into the preview">
+            <TextBox Grid.Column="2" AutomationProperties.Name="Search preview rows" Text="{Binding PasteSearch}" Watermark="Search rows" Width="200" Margin="0,0,8,0" IsVisible="{Binding IsPreviewTab}" />
+            <ComboBox Grid.Column="3" AutomationProperties.Name="Number of records in the preview" SelectedIndex="{Binding PasteRowsIndex}" Width="150" IsVisible="{Binding IsPreviewTab}" ToolTip.Tip="How many records to load into the preview">
               <ComboBoxItem Content="First 10 records" /><ComboBoxItem Content="First 50 records" /><ComboBoxItem Content="First 200 records" /><ComboBoxItem Content="First 1,000 records" />
             </ComboBox>
           </Grid>
 
           <Grid Grid.Row="1" IsVisible="{Binding IsPreviewTab}">
-            <DataGrid x:Name="PastePreviewGrid" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="False"
+            <DataGrid x:Name="PastePreviewGrid" AutomationProperties.Name="Preview of the converted data" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="False"
                       HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" IsVisible="{Binding PasteHasPreview}" />
             <Border Classes="card" IsVisible="{Binding !PasteHasPreview}">
               <TextBlock Classes="muted" Text="Records appear here as soon as the JSON is valid." HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -122,13 +122,13 @@
                     <DataTemplate x:DataType="m:ColumnRuleVm">
                       <Border Classes="row" Padding="0,4">
                         <Grid ColumnDefinitions="56,2*,80,64,2*,170,130">
-                          <CheckBox IsChecked="{Binding Include}" VerticalAlignment="Center" ToolTip.Tip="Include this column in the export" />
+                          <CheckBox AutomationProperties.Name="Include this column in the export" IsChecked="{Binding Include}" VerticalAlignment="Center" ToolTip.Tip="Include this column in the export" />
                           <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="{Binding Indent}" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
                           <Border Grid.Column="2" Classes="badge" HorizontalAlignment="Left" VerticalAlignment="Center" Padding="8,2"><TextBlock Text="{Binding Type}" FontSize="11" /></Border>
                           <TextBlock Grid.Column="3" Text="{Binding FilledText}" Classes="muted" VerticalAlignment="Center" />
                           <TextBlock Grid.Column="4" Text="{Binding Sample}" Classes="muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,10,0" ToolTip.Tip="{Binding Sample}" />
-                          <TextBox Grid.Column="5" Text="{Binding RenameTo}" Watermark="Keep name" Margin="0,0,8,0" />
-                          <ComboBox Grid.Column="6" SelectedIndex="{Binding MaskIndex}" HorizontalAlignment="Stretch" ToolTip.Tip="Redact replaces values with [REDACTED]; Hash replaces them with a one-way code (same value, same code)">
+                          <TextBox Grid.Column="5" AutomationProperties.Name="Rename column to" Text="{Binding RenameTo}" Watermark="Keep name" Margin="0,0,8,0" />
+                          <ComboBox Grid.Column="6" AutomationProperties.Name="Mask values in this column" SelectedIndex="{Binding MaskIndex}" HorizontalAlignment="Stretch" ToolTip.Tip="Redact replaces values with [REDACTED]; Hash replaces them with a one-way code (same value, same code)">
                             <ComboBoxItem Content="No mask" /><ComboBoxItem Content="Redact" /><ComboBoxItem Content="Hash" />
                           </ComboBox>
                         </Grid>
@@ -198,7 +198,7 @@
                         <TextBlock Text="{Binding StatusText}" FontSize="12" FontWeight="SemiBold"
                                    Foreground="{Binding Status, Converter={x:Static conv:StatusBrushConverter.Instance}, ConverterParameter=fg}" />
                       </Border>
-                      <Button Grid.Column="4" Classes="icon" Content="✕" Tag="{Binding}" Click="OnRemoveFileClick" ToolTip.Tip="Remove file" />
+                      <Button Grid.Column="4" Classes="icon" Content="✕" AutomationProperties.Name="Remove file" Tag="{Binding}" Click="OnRemoveFileClick" ToolTip.Tip="Remove file" />
                     </Grid>
                   </Border>
                 </DataTemplate>
@@ -216,7 +216,7 @@
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
               <TextBlock Text="Data array" Classes="muted" VerticalAlignment="Center" IsVisible="{Binding ShowCandidates}" />
-              <ComboBox ItemsSource="{Binding Candidates}" SelectedItem="{Binding SelectedCandidate}" MinWidth="260" IsVisible="{Binding ShowCandidates}">
+              <ComboBox AutomationProperties.Name="Data array to convert" ItemsSource="{Binding Candidates}" SelectedItem="{Binding SelectedCandidate}" MinWidth="260" IsVisible="{Binding ShowCandidates}">
                 <ComboBox.ItemTemplate>
                   <DataTemplate x:DataType="core:DataSourceCandidate"><TextBlock Text="{Binding Display}" /></DataTemplate>
                 </ComboBox.ItemTemplate>
@@ -229,7 +229,7 @@
             <TextBlock Text="{Binding PreviewMessage}" Foreground="{DynamicResource WarnBrush}" TextWrapping="Wrap" IsVisible="{Binding !HasPreview}" Margin="0,0,0,6" />
             <TextBlock Text="{Binding PreviewWarnings}" Foreground="{DynamicResource WarnBrush}" TextWrapping="Wrap" FontSize="12" />
           </StackPanel>
-          <DataGrid x:Name="PreviewGrid" Grid.Row="2" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="False"
+          <DataGrid x:Name="PreviewGrid" AutomationProperties.Name="Preview of the selected file" Grid.Row="2" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="False"
                     HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" IsVisible="{Binding HasPreview}" />
           <Border Grid.Row="2" Classes="card" IsVisible="{Binding !HasPreview}">
             <TextBlock Classes="muted" Text="Click a file in the list to preview it here." HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -251,12 +251,12 @@
               <TextBlock Classes="h2" Text="Presets" />
               <TextBlock Classes="muted" TextWrapping="Wrap" Text="Save the current options and column rules (include, rename, mask) under a name, and reuse them for recurring feeds." />
               <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasPresets}">
-                <ComboBox ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}" Width="260" PlaceholderText="Choose a preset" />
+                <ComboBox AutomationProperties.Name="Preset" ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}" Width="260" PlaceholderText="Choose a preset" />
                 <Button Classes="primary" Content="Apply" Command="{Binding ApplyPresetCommand}" Padding="16,8" />
                 <Button Classes="soft" Content="Delete" Command="{Binding DeletePresetCommand}" />
               </StackPanel>
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBox Text="{Binding PresetName}" Watermark="Preset name, e.g. LIS results (masked)" Width="260" />
+                <TextBox AutomationProperties.Name="New preset name" Text="{Binding PresetName}" Watermark="Preset name, e.g. LIS results (masked)" Width="260" />
                 <Button Classes="soft" Content="Save current as preset" Command="{Binding SavePresetCommand}" />
               </StackPanel>
             </StackPanel>
@@ -264,14 +264,14 @@
           <Border Classes="card">
             <StackPanel Spacing="12">
               <TextBlock Classes="h2" Text="Excel and CSV options" />
-              <StackPanel Spacing="4"><TextBlock Classes="muted" Text="Sheet name (Excel)" /><TextBox Text="{Binding SheetName}" Width="260" HorizontalAlignment="Left" MaxLength="31" /></StackPanel>
+              <StackPanel Spacing="4"><TextBlock Classes="muted" Text="Sheet name (Excel)" /><TextBox AutomationProperties.Name="Excel sheet name" Text="{Binding SheetName}" Width="260" HorizontalAlignment="Left" MaxLength="31" /></StackPanel>
               <StackPanel Spacing="4"><TextBlock Classes="muted" Text="CSV delimiter" />
-                <ComboBox SelectedIndex="{Binding DelimiterIndex}" Width="260"><ComboBoxItem Content="Comma ( , )" /><ComboBoxItem Content="Semicolon ( ; )" /><ComboBoxItem Content="Tab" /></ComboBox></StackPanel>
+                <ComboBox AutomationProperties.Name="CSV delimiter" SelectedIndex="{Binding DelimiterIndex}" Width="260"><ComboBoxItem Content="Comma ( , )" /><ComboBoxItem Content="Semicolon ( ; )" /><ComboBoxItem Content="Tab" /></ComboBox></StackPanel>
               <StackPanel Spacing="4"><TextBlock Classes="muted" Text="CSV encoding" />
-                <ComboBox SelectedIndex="{Binding CsvEncodingIndex}" Width="260"><ComboBoxItem Content="UTF-8 with BOM (best for Excel)" /><ComboBoxItem Content="UTF-8 without BOM" /><ComboBoxItem Content="UTF-16 (Unicode)" /></ComboBox></StackPanel>
+                <ComboBox AutomationProperties.Name="CSV encoding" SelectedIndex="{Binding CsvEncodingIndex}" Width="260"><ComboBoxItem Content="UTF-8 with BOM (best for Excel)" /><ComboBoxItem Content="UTF-8 without BOM" /><ComboBoxItem Content="UTF-16 (Unicode)" /></ComboBox></StackPanel>
               <StackPanel Spacing="4"><TextBlock Classes="muted" Text="Separator used when array values are combined into one cell" />
-                <TextBox Text="{Binding ArraySeparator}" Width="120" HorizontalAlignment="Left" /></StackPanel>
-              <CheckBox IsChecked="{Binding ProtectCsv}" Content="Protect CSV from formula injection (adds a ' before text starting with = + - @)" />
+                <TextBox AutomationProperties.Name="Array separator" Text="{Binding ArraySeparator}" Width="120" HorizontalAlignment="Left" /></StackPanel>
+              <CheckBox IsChecked="{Binding ProtectCsv}" Content="Protect CSV from formula injection (adds a ' before text starting with = + - @; plain dashes and phone numbers are left alone)" />
               <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" Text="Recommended when the data comes from outside your organisation. Plain numbers are never changed, and Excel files are always safe." />
             </StackPanel>
           </Border>
@@ -280,7 +280,7 @@
               <TextBlock Classes="h2" Text="Structure" />
               <CheckBox IsChecked="{Binding FlattenNested}" Content="Flatten nested objects into dotted columns (patient.demographics.age)" />
               <StackPanel Spacing="4"><TextBlock Classes="muted" Text="Arrays" />
-                <ComboBox SelectedIndex="{Binding ArrayModeIndex}" Width="380">
+                <ComboBox AutomationProperties.Name="How arrays are handled" SelectedIndex="{Binding ArrayModeIndex}" Width="380">
                   <ComboBoxItem Content="Combine values into one cell (separated by ;)" /><ComboBoxItem Content="Keep each array as JSON text" />
                   <ComboBoxItem Content="Expand arrays into separate rows" /><ComboBoxItem Content="Send object arrays to separate sheets" />
                 </ComboBox>
@@ -292,20 +292,20 @@
             <StackPanel Spacing="12">
               <TextBlock Classes="h2" Text="Columns and values" />
               <StackPanel Spacing="4"><TextBlock Classes="muted" Text="Column order" />
-                <ComboBox SelectedIndex="{Binding OrderIndex}" Width="380">
+                <ComboBox AutomationProperties.Name="Column order" SelectedIndex="{Binding OrderIndex}" Width="380">
                   <ComboBoxItem Content="Smart (ID, Code, Name, Description, Date, Status, Type, rest)" /><ComboBoxItem Content="Alphabetical" />
                   <ComboBoxItem Content="Original JSON order" /><ComboBoxItem Content="Custom order" /></ComboBox></StackPanel>
               <StackPanel IsVisible="{Binding IsCustomOrder}" Spacing="4"><TextBlock Classes="muted" Text="Custom order: one column name per line. Unlisted columns follow in original order." />
-                <TextBox Text="{Binding CustomOrderText}" AcceptsReturn="True" Height="110" Width="380" HorizontalAlignment="Left" /></StackPanel>
+                <TextBox AutomationProperties.Name="Custom column order, one name per line" Text="{Binding CustomOrderText}" AcceptsReturn="True" Height="110" Width="380" HorizontalAlignment="Left" /></StackPanel>
               <StackPanel Spacing="4"><TextBlock Classes="muted" Text="Null values" />
-                <ComboBox SelectedIndex="{Binding NullIndex}" Width="380"><ComboBoxItem Content="Leave blank" /><ComboBoxItem Content="Write the word null (missing fields stay blank)" /></ComboBox></StackPanel>
+                <ComboBox AutomationProperties.Name="Null values" SelectedIndex="{Binding NullIndex}" Width="380"><ComboBoxItem Content="Leave blank" /><ComboBoxItem Content="Write the word null (missing fields stay blank)" /></ComboBox></StackPanel>
             </StackPanel>
           </Border>
           <Border Classes="card">
             <StackPanel Spacing="10">
               <TextBlock Classes="h2" Text="Appearance" />
               <StackPanel Orientation="Horizontal" Spacing="10"><TextBlock Text="Theme" Classes="muted" VerticalAlignment="Center" />
-                <ComboBox SelectedIndex="{Binding ThemeIndex}" Width="200"><ComboBoxItem Content="Match system" /><ComboBoxItem Content="Light" /><ComboBoxItem Content="Dark" /></ComboBox></StackPanel>
+                <ComboBox AutomationProperties.Name="Theme" SelectedIndex="{Binding ThemeIndex}" Width="200"><ComboBoxItem Content="Match system" /><ComboBoxItem Content="Light" /><ComboBoxItem Content="Dark" /></ComboBox></StackPanel>
             </StackPanel>
           </Border>
           <Border Classes="card">

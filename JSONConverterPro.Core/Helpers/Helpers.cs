@@ -36,7 +36,9 @@ public static class DateFormatHelper
     }
 
     public static string ExcelFormat(DateTime d) =>
-        d.TimeOfDay == TimeSpan.Zero ? "yyyy-mm-dd" : "yyyy-mm-dd hh:mm:ss";
+        d.TimeOfDay == TimeSpan.Zero ? "yyyy-mm-dd"
+        : d.Ticks % TimeSpan.TicksPerSecond != 0 ? "yyyy-mm-dd hh:mm:ss.000"
+        : "yyyy-mm-dd hh:mm:ss";
 }
 
 public static class NumberHelper
@@ -61,6 +63,18 @@ public static class NumberHelper
         if (sig > 15) return false;
         if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out value)) return false;
         return !double.IsInfinity(value) && !double.IsNaN(value);
+    }
+
+    /// <summary>
+    /// Number of decimal places when a plain decimal number is written with a trailing zero ("5.0" → 1, "0.250" → 3),
+    /// otherwise 0. Excel would drop those zeros, which hides the precision the source reported.
+    /// </summary>
+    public static int TrailingZeroDecimals(string raw)
+    {
+        int dot = raw.IndexOf('.');
+        if (dot < 0 || raw[^1] != '0' || raw.IndexOfAny(new[] { 'e', 'E' }) >= 0) return 0;
+        int dec = raw.Length - dot - 1;
+        return dec <= 15 ? dec : 0;
     }
 }
 

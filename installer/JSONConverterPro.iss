@@ -1,7 +1,7 @@
 ; Inno Setup script for the Windows installer (per-user install, no admin rights needed).
 ; Built by publish.ps1 -Installer, or by the release workflow on GitHub Actions.
 #ifndef AppVersion
-  #define AppVersion "1.0.0"
+  #define AppVersion "1.0.1"
 #endif
 
 [Setup]

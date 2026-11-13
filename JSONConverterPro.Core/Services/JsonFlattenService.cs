@@ -85,6 +85,7 @@ public sealed class FlattenService
     }
 
     private sealed class ExpansionLimitException : Exception { }
+    private bool _crossWarned, _damagedWarned;
 
     public FlattenService(ConversionSettings settings, TableRegistry tables, WarningCollector warnings)
     {
@@ -136,8 +137,11 @@ public sealed class FlattenService
             seen[p.Name] = ++k;
             // Duplicate property names inside one object get their own identity (and a "(2)" display name), never overwritten.
             string seg = k == 1 ? p.Name : $"{p.Name}\u0001{k}";
-            string childId = id.Length == 0 ? seg : id + IdSep + seg;
-            string childName = name.Length == 0 ? p.Name : name + "." + p.Name;
+            // The identity always starts with the separator, so a property of an object stored under an empty
+            // name ({"":{"a":1}}) can never share an identity with a top-level property ("a").
+            bool atRoot = id.Length == 0;
+            string childId = id + IdSep + seg;
+            string childName = atRoot ? p.Name : name + "." + p.Name;
             if (k > 1) _warnings.Add($"Duplicate property \"{childName}\" found; the extra value was kept in its own column.");
 
             var v = p.Value;
@@ -153,7 +157,7 @@ public sealed class FlattenService
                 foreach (var r in rows) r.Add(col, cell);
             }
         }
-        if (!any && name.Length > 0)
+        if (!any && id.Length > 0)
         {
             // Empty object: keep the column so the property is never silently dropped.
             rows[0].Add(c.Reg.Resolve(id, name, depth), CellValue.Empty);
@@ -212,7 +216,9 @@ public sealed class FlattenService
             if (len == 1) return Single(Col(), ScalarCell(arr[0]));
             var parts = new List<string>(len);
             foreach (var el in arr.EnumerateArray()) parts.Add(Token(ScalarCell(el)));
-            return Single(Col(), CellValue.FromText(string.Join(_s.ArrayJoinSeparator, parts)));
+            string joined = string.Join(_s.ArrayJoinSeparator, parts);
+            // A list inside a list of objects is bracketed, so its grouping survives the outer join: "[a; b]; c".
+            return Single(Col(), CellValue.FromText(c.ForceJoin ? "[" + joined + "]" : joined));
         }
         return JoinPerField(arr, id, name, len, c, depth);
     }
@@ -300,6 +306,13 @@ public sealed class FlattenService
         }
         if (b.Count == 0) return a;
         if ((long)a.Count * b.Count > _s.MaxExpandedRowsPerRecord) throw new ExpansionLimitException();
+        if (a.Count > 1 && !_crossWarned)
+        {
+            _crossWarned = true;
+            _warnings.Add("Some records contain more than one list, so \"one row per item\" wrote every combination of their items " +
+                          $"(for example {a.Count} × {b.Count} = {a.Count * b.Count} rows for one record). Values from the record repeat on each row, " +
+                          "so totals summed in Excel will be too high. Use \"separate sheet per list\" to avoid this.");
+        }
         var res = new List<FlatRow>(a.Count * b.Count);
         foreach (var x in a)
             foreach (var y in b)
@@ -326,7 +339,18 @@ public sealed class FlattenService
         {
             case JsonValueKind.String:
             {
-                string s = v.GetString() ?? "";
+                string s;
+                try { s = v.GetString() ?? ""; }
+                catch (InvalidOperationException)
+                {
+                    // Damaged text (half of a surrogate pair, or invalid UTF-8): keep the rest of the value instead of failing the file.
+                    s = LenientString(v);
+                    if (!_damagedWarned)
+                    {
+                        _damagedWarned = true;
+                        _warnings.Add("Some text contained damaged characters (an incomplete emoji or symbol). They were replaced with \uFFFD.");
+                    }
+                }
                 if (_s.ParseDates && DateFormatHelper.TryParseReliable(s, out var d)) return CellValue.FromDate(s, d);
                 return CellValue.FromText(s);
             }
@@ -341,5 +365,37 @@ public sealed class FlattenService
             case JsonValueKind.Null: return CellValue.Null;
             default: return CellValue.Empty;
         }
+    }
+
+    /// <summary>Decodes a JSON string that the strict decoder rejects, replacing whatever can't be represented with U+FFFD.</summary>
+    internal static string LenientString(JsonElement v)
+    {
+        string raw;
+        try { raw = v.GetRawText(); } catch (InvalidOperationException) { return "\uFFFD"; }
+        if (raw.Length >= 2 && raw[0] == '"' && raw[^1] == '"') raw = raw[1..^1];
+        var sb = new System.Text.StringBuilder(raw.Length);
+        for (int i = 0; i < raw.Length; i++)
+        {
+            char ch = raw[i];
+            if (ch != '\\' || i + 1 >= raw.Length) { sb.Append(ch); continue; }
+            char e = raw[++i];
+            switch (e)
+            {
+                case 'n': sb.Append('\n'); break;
+                case 'r': sb.Append('\r'); break;
+                case 't': sb.Append('\t'); break;
+                case 'b': sb.Append('\b'); break;
+                case 'f': sb.Append('\f'); break;
+                case 'u' when i + 4 < raw.Length && int.TryParse(raw.AsSpan(i + 1, 4), System.Globalization.NumberStyles.HexNumber, null, out int code):
+                    sb.Append((char)code); i += 4; break;
+                default: sb.Append(e); break;
+            }
+        }
+        for (int i = 0; i < sb.Length; i++)
+        {
+            if (char.IsHighSurrogate(sb[i]) && i + 1 < sb.Length && char.IsLowSurrogate(sb[i + 1])) { i++; continue; }
+            if (char.IsSurrogate(sb[i])) sb[i] = '\uFFFD';
+        }
+        return sb.ToString();
     }
 }

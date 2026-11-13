@@ -26,7 +26,28 @@ public sealed class CsvExportService
         char f = s[0];
         if (f is not ('=' or '+' or '-' or '@' or '\t' or '\r')) return s;
         if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out _)) return s;   // a real number is not a formula
+        if ((f is '+' or '-') && IsHarmlessSigned(s)) return s;
         return "'" + s;
+    }
+
+    /// <summary>
+    /// Placeholders made only of dashes ("-", "--") and phone-style values ("+91 98765 43210": a sign, then digits and spaces)
+    /// can't be read as a formula, so they are left exactly as they are.
+    /// </summary>
+    private static bool IsHarmlessSigned(string s)
+    {
+        bool onlyDashes = true, digitsAndSpaces = true, anyDigit = false;
+        for (int i = 0; i < s.Length; i++)
+        {
+            char ch = s[i];
+            if (ch != '-' && ch != ' ') onlyDashes = false;
+            if (i > 0)
+            {
+                if (ch >= '0' && ch <= '9') anyDigit = true;
+                else if (ch != ' ') digitsAndSpaces = false;
+            }
+        }
+        return onlyDashes || (digitsAndSpaces && anyDigit);
     }
 
     internal static string Escape(string s, char delimiter)

@@ -133,7 +133,7 @@ public partial class MainViewModel : ObservableObject
     {
         0 => "Arrays become one cell separated by semicolons. Arrays of objects keep one column per field, so nothing is lost.",
         1 => "Each array is kept as compact JSON text in a single cell.",
-        2 => "Each array element becomes its own row; parent values repeat. Very large combinations fall back to joining.",
+        2 => "Each array element becomes its own row; parent values repeat. A record with two or more lists gets every combination of their items, so totals can be inflated: prefer separate sheets for that. Very large combinations fall back to joining.",
         _ => "Arrays of objects are written to extra worksheets (or extra CSV files), linked by _recordNo."
     };
 

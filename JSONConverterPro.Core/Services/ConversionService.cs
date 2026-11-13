@@ -122,7 +122,8 @@ public sealed class ConversionService
             foreach (var tn in tableNames)
             {
                 var shape = ColumnShaper.Shape(scan.Tables.Get(tn).Columns, settings);
-                if (shape.DataColumnCount == 0)
+                // Only the main table must keep a column. A linked table left with just its link columns is still valid.
+                if (tn.Length == 0 && shape.DataColumnCount == 0)
                     throw new UserFacingException("Every column is excluded, so there is nothing to export. Include at least one column.");
                 shapes.Add(shape);
                 schemas.Add(new TableSchema(tn, shape.Columns));
@@ -139,8 +140,17 @@ public sealed class ConversionService
             if (settings.OutputFormat == OutputFormat.Excel)
                 finals.Add(Path.Combine(req.OutputDirectory, baseName + ".xlsx"));
             else
+            {
+                // File names must differ even on file systems that ignore letter case ("Items" and "items").
+                var usedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var s in schemas)
-                    finals.Add(Path.Combine(req.OutputDirectory, s.Name.Length == 0 ? baseName + ".csv" : $"{baseName}_{FileService.SanitizeFileName(s.Name)}.csv"));
+                {
+                    string stem = s.Name.Length == 0 ? baseName : $"{baseName}_{FileService.SanitizeFileName(s.Name)}";
+                    string unique = stem; int n = 2;
+                    while (!usedFiles.Add(unique)) unique = $"{stem}_{n++}";
+                    finals.Add(Path.Combine(req.OutputDirectory, unique + ".csv"));
+                }
+            }
 
             var existing = finals.Where(File.Exists).ToList();
             if (existing.Count > 0)

@@ -43,6 +43,7 @@ public sealed class ExcelExportService
         {
             string clean = new string(baseName.Select(ch => "[]:*?/\\".Contains(ch) ? '_' : ch).ToArray()).Trim('\'', ' ');
             if (clean.Length == 0) clean = "Sheet";
+            if (clean.Equals("History", StringComparison.OrdinalIgnoreCase)) clean += "_";   // "History" is reserved by Excel
             string suffix = sheetNo > 1 ? $" ({sheetNo})" : "";
             string name = clean.Length + suffix.Length > 31 ? clean[..(31 - suffix.Length)] + suffix : clean + suffix;
             int n = sheetNo;
@@ -119,6 +120,8 @@ public sealed class ExcelExportService
                             cell.Value = d;
                             // Excel's General format switches to scientific notation past ~11 digits.
                             if (Math.Abs(d) >= 1e11 && d == Math.Floor(d)) cell.Style.NumberFormat.Format = "0";
+                            else if (NumberHelper.TrailingZeroDecimals(v.Text ?? "") is int dec and > 0)
+                                cell.Style.NumberFormat.Format = "0." + new string('0', dec);   // show 5.0 as written, not as 5
                         }
                         else ws.Cell(r, c + 1).Value = v.Text ?? ""; // keep every digit of long IDs
                         len = (v.Text ?? "").Length;

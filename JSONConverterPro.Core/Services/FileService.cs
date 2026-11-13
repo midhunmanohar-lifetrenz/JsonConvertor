@@ -48,13 +48,40 @@ public sealed class FileService
         }
     }
 
-    /// <summary>Heuristic on the first 128 KB: at least two complete lines that each hold one whole JSON object or array.</summary>
+    /// <summary>
+    /// Heuristic: the first two non-empty lines each hold one whole JSON object or array. Reads 128 KB first and
+    /// keeps reading (up to 32 MB) when the lines are longer than that.
+    /// </summary>
     internal static bool LooksLikeJsonLines(FileStream fs)
     {
         try
         {
             var buf = new byte[128 * 1024];
-            int n = fs.Read(buf, 0, buf.Length);
+            int n = ReadFully(fs, buf, buf.Length);
+            if (CountLineBreaks(buf, n) < 2 && fs.Length > n)
+            {
+                // Long lines: look further (up to 32 MB) for the end of the second line without holding the data,
+                // so a large one-line (minified) JSON file costs no extra memory.
+                const int Limit = 32 * 1024 * 1024;
+                var chunk = new byte[64 * 1024];
+                long end = -1, offset = 0;
+                int breaks = 0; bool content = false;
+                fs.Position = 0;
+                int r;
+                while (end < 0 && offset < Limit && (r = fs.Read(chunk, 0, chunk.Length)) > 0)
+                {
+                    for (int i = 0; i < r; i++)
+                    {
+                        if (chunk[i] == (byte)'\n') { if (content && ++breaks == 2) { end = offset + i + 1; break; } content = false; }
+                        else if (chunk[i] > 0x20) content = true;
+                    }
+                    offset += r;
+                }
+                fs.Position = 0;
+                if (end < 0 || end > Limit) return false;
+                buf = new byte[end];
+                n = ReadFully(fs, buf, buf.Length);
+            }
             fs.Position = 0;
             int start = n >= 3 && buf[0] == 0xEF && buf[1] == 0xBB && buf[2] == 0xBF ? 3 : 0;
             string text = Encoding.UTF8.GetString(buf, start, n - start);
@@ -74,6 +101,26 @@ public sealed class FileService
             return true;
         }
         catch { fs.Position = 0; return false; }
+    }
+
+    private static int ReadFully(Stream s, byte[] buf, int count)
+    {
+        int n = 0, r;
+        while (n < count && (r = s.Read(buf, n, count - n)) > 0) n += r;
+        return n;
+    }
+
+    /// <summary>Counts the first non-empty lines that end with a line break (stops at two).</summary>
+    private static int CountLineBreaks(byte[] buf, int n)
+    {
+        int lineBreaks = 0;
+        bool content = false;
+        for (int i = 0; i < n && lineBreaks < 2; i++)
+        {
+            if (buf[i] == (byte)'\n') { if (content) lineBreaks++; content = false; }
+            else if (buf[i] > 0x20) content = true;
+        }
+        return lineBreaks;
     }
 
     public string EnsureOutputDirectory(string dir)
@@ -130,6 +177,8 @@ public sealed class FileService
                     return "The file is open in another program (for example Excel). Close it and try again.";
                 return "The file could not be read or written. Check that it isn't in use and that you have access.";
             }
+            case InvalidOperationException inv when inv.Message.Contains("UTF-16", StringComparison.OrdinalIgnoreCase) || inv.Message.Contains("UTF-8", StringComparison.OrdinalIgnoreCase):
+                return "The file contains damaged text (an incomplete character) in a field name, so it can't be read. Fix or remove that character and try again.";
             case OutOfMemoryException: return "The file is too large to process with the current settings. Try CSV output or a smaller file.";
             default: return "The conversion failed unexpectedly. Details were saved to the log.";
         }

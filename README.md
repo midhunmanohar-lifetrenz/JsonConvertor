@@ -1,7 +1,7 @@
 # JSON Converter Pro
 
 Desktop app that converts JSON, JSON Lines and TXT data into properly structured **Excel (.xlsx)** and **CSV** files.
-It runs on **Windows x64** and **macOS Apple Silicon**. Users don't need Excel, Python, the .NET SDK or Visual Studio.
+It runs on **Windows x64** and **macOS** (Apple Silicon and Intel). Users don't need Excel, Python, the .NET SDK or Visual Studio.
 
 - **End users:** read [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
 - **What's in this version:** [RELEASE_NOTES.md](RELEASE_NOTES.md).
@@ -57,9 +57,9 @@ dotnet run --project JSONConverterPro.App
 
 | Command | Output (in `dist/release/` unless noted) |
 |---|---|
-| `./publish.sh` (macOS) | `.dmg` for Apple Silicon, Windows portable `.zip`, `SHA256SUMS.txt`, plus `dist/JSON Converter Pro.app` |
+| `./publish.sh` (macOS) | `.dmg` for Apple Silicon and for Intel Macs, Windows portable `.zip`, `SHA256SUMS.txt`, plus `dist/JSON Converter Pro.app` |
 | `./publish.ps1 -Installer` (Windows) | Single-file `JSONConverterPro.exe`, portable `.zip`, and an Inno Setup per-user installer |
-| Push tag `v1.0.0` | `.github/workflows/release.yml` builds and smoke-tests everything on GitHub and attaches it to a release |
+| Push tag `v1.0.1` | `.github/workflows/release.yml` builds and smoke-tests everything on GitHub and attaches it to a release |
 
 Every build is self-contained, single-file and Release-configured.
 - **macOS:** the native libraries are bundled next to the executable inside the `.app`. The `.app` is ad-hoc signed, not notarized, so users must allow it once in **System Settings → Privacy & Security → Open Anyway**. Notarization needs a **Developer ID Application** certificate from the Apple team's Account Holder or Admin; an *Apple Development* certificate can't be used.

@@ -21,16 +21,46 @@ public partial class MainViewModel
     //  Paste area (the first screen)
     // ============================================================
 
-    public static string TempDir => Path.Combine(Path.GetTempPath(), "JSONConverterPro", "paste");
+    public const int MaxEditorChars = 5_000_000;
+    public static string TempRoot => Path.Combine(Path.GetTempPath(), "JSONConverterPro", "paste");
+    /// <summary>
+    /// Private to this running copy of the app (named after its process id), so two open windows can never
+    /// read or delete each other's pasted data.
+    /// </summary>
+    public static string TempDir { get; } = Path.Combine(TempRoot, "s-" + Environment.ProcessId);
     /// <summary>Called when the app quits: stops work and removes every temporary copy of pasted data.</summary>
     public void Shutdown()
     {
         _pasteDebounceCts?.Cancel(); _pasteCts?.Cancel(); _previewCts?.Cancel(); _convertCts?.Cancel();
         TryDelete(_pasteFile); _pasteFile = null;
-        TryCleanTempDir();
+        TryDeleteDir(TempDir);
     }
 
-    private static void TryCleanTempDir() { try { if (Directory.Exists(TempDir)) Directory.Delete(TempDir, true); } catch { /* locked: ignore */ } }
+    private static void TryDeleteDir(string dir) { try { if (Directory.Exists(dir)) Directory.Delete(dir, true); } catch { /* locked: ignore */ } }
+
+    /// <summary>At startup: removes this copy's folder and any folder left behind by a copy that is no longer running.</summary>
+    private static void TryCleanTempDir()
+    {
+        TryDeleteDir(TempDir);
+        try
+        {
+            if (!Directory.Exists(TempRoot)) return;
+            foreach (var f in Directory.GetFiles(TempRoot)) FileService.TryDelete(f);   // files from versions before 1.0.1
+            string self = System.Diagnostics.Process.GetCurrentProcess().ProcessName;
+            foreach (var dir in Directory.GetDirectories(TempRoot))
+            {
+                string name = Path.GetFileName(dir);
+                bool alive = false;
+                if (name.StartsWith("s-", StringComparison.Ordinal) && int.TryParse(name.AsSpan(2), out int pid))
+                {
+                    try { using var p = System.Diagnostics.Process.GetProcessById(pid); alive = !p.HasExited && p.ProcessName == self; }
+                    catch { alive = false; }
+                }
+                if (!alive) TryDeleteDir(dir);
+            }
+        }
+        catch { /* best effort */ }
+    }
     private static void TryDelete(string? path) { if (path != null) FileService.TryDelete(path); }
 
     private string? _pasteFile;                 // last successfully analysed copy of the text
@@ -41,7 +71,38 @@ public partial class MainViewModel
 
     private static string Key(DataSourceCandidate c) => c.Kind + ":" + c.Path;
 
-    partial void OnPasteTextChanged(string value) => SchedulePasteRefresh();
+    partial void OnPasteTextChanged(string value)
+    {
+        if (_loading) return;
+        if (value.Length > MaxEditorChars) { _ = MoveLargePasteToFilesAsync(value); return; }
+        // The preview no longer matches the text, so downloads are blocked until it has been checked again.
+        if (!string.IsNullOrWhiteSpace(value)) { PasteStatusText = "Checking…"; PasteStatusKind = "busy"; }
+        SchedulePasteRefresh();
+    }
+
+    private int _largeSeq;
+
+    /// <summary>
+    /// Very large text makes the editor slow, so it is saved to a private temporary file and handled on the Files page,
+    /// which streams from disk. The file is deleted when the app quits, like all pasted data.
+    /// </summary>
+    public async Task MoveLargePasteToFilesAsync(string text)
+    {
+        try
+        {
+            string path = Path.Combine(TempDir, $"pasted-text-{++_largeSeq}.json");
+            await Task.Run(() => { Directory.CreateDirectory(TempDir); File.WriteAllText(path, text, new UTF8Encoding(false)); });
+            if (PasteText.Length > MaxEditorChars) PasteText = "";
+            CurrentPage = "Files";
+            await AddPathsAsync(new[] { path });
+            Banner($"That text is very large ({FileSizeHelper.Format(text.Length)}), so it was added to the Files page instead of the editor. Choose Excel or CSV below and click Convert files.", "info", false);
+        }
+        catch (Exception ex)
+        {
+            Banner(_files.Describe(ex), "error", false);
+            _log.LogWarning(ex, "Could not move a large paste to the Files page");
+        }
+    }
 
     partial void OnSelectedPasteCandidateChanged(DataSourceCandidate? value)
     {

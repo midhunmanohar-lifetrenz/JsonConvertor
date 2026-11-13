@@ -38,7 +38,8 @@ public sealed class FakeDialogs : IDialogService
         SaveRequests.Add(suggestedName + "." + extension);
         return Task.FromResult(SavePaths.Count > 0 ? SavePaths.Dequeue() : null);
     }
-    public Task<bool> ConfirmAsync(string title, string message, string yes, string no) => Task.FromResult(ConfirmAnswer);
+    public int ConfirmPrompts { get; private set; }
+    public Task<bool> ConfirmAsync(string title, string message, string yes, string no) { ConfirmPrompts++; return Task.FromResult(ConfirmAnswer); }
 }
 
 public class UiTests
@@ -473,6 +474,68 @@ public class UiTests
         Assert.True(File.Exists(csv));
         Assert.Contains("नमस्ते;कोच्चि", File.ReadAllText(csv));
         vm.ClearFilesCommand.Execute(null);
+        Directory.Delete(outDir, true);
+    }
+
+    // ------------------------------------------------------------------ 1.0.1 review fixes
+
+    [AvaloniaFact]
+    public void TempFolder_IsPrivateToThisProcess_AndStaleFoldersAreRemoved()
+    {
+        Assert.EndsWith("s-" + Environment.ProcessId, MainViewModel.TempDir);
+        // A folder left by a copy that is no longer running, and a loose file from 1.0.0, are cleaned at startup.
+        string stale = Path.Combine(MainViewModel.TempRoot, "s-999999990");
+        Directory.CreateDirectory(stale);
+        File.WriteAllText(Path.Combine(stale, "paste-1.json"), "{}");
+        string loose = Path.Combine(MainViewModel.TempRoot, "paste-1.json");
+        File.WriteAllText(loose, "{}");
+        var (win, vm, dlg) = Create();
+        Assert.False(Directory.Exists(stale));
+        Assert.False(File.Exists(loose));
+        vm.Shutdown();
+    }
+
+    [AvaloniaFact]
+    public void Download_IsBlocked_UntilEditedTextHasBeenCheckedAgain()
+    {
+        var (win, vm, dlg) = Create();
+        SetPaste(vm, """[{"id":1}]""");
+        Assert.True(vm.PasteIsOk);
+        vm.PasteText = """[{"id":2}]""";          // edited: the debounced check has not run yet
+        Assert.False(vm.PasteIsOk);
+        Pump(vm.DownloadCsvCommand.ExecuteAsync(null));
+        Assert.Empty(dlg.SaveRequests);            // no Save dialog, nothing exported from the old text
+        Pump(vm.RefreshPasteAsync()); Spin(700);
+        Assert.True(vm.PasteIsOk);
+        vm.Shutdown();
+    }
+
+    [AvaloniaFact]
+    public void VeryLargePaste_GoesToFilesPage_AndBatchAsksAboutReplacingOnce()
+    {
+        var (win, vm, dlg) = Create();
+        string big = "[" + string.Join(",", Enumerable.Range(0, 260_000).Select(i => $"{{\"id\":{i},\"n\":\"row\"}}")) + "]";
+        Assert.True(big.Length > MainViewModel.MaxEditorChars);
+        vm.PasteText = big;
+        Settle(vm); Spin(500); Settle(vm);
+        Assert.Equal("", vm.PasteText);
+        Assert.True(vm.IsFilesPage);
+        Assert.Single(vm.Files);
+        Assert.Equal(FileStatus.Ready, vm.Files[0].Status);
+        Assert.StartsWith(MainViewModel.TempDir, vm.Files[0].Path);
+
+        // Batch of two files whose outputs already exist: one question, answer reused.
+        Pump(vm.AddPathsAsync(new[] { Path.Combine(Samples, "05-unicode-multilingual.json") }));
+        Settle(vm);
+        string outDir = Path.Combine(Path.GetTempPath(), "jcp-ui-" + Guid.NewGuid().ToString("N")[..6]);
+        dlg.Folder = outDir; vm.IsExcel = false;
+        Pump(vm.ConvertCommand.ExecuteAsync(null));
+        Assert.Equal(0, dlg.ConfirmPrompts);
+        Pump(vm.ConvertCommand.ExecuteAsync(null));
+        Assert.Equal(1, dlg.ConfirmPrompts);
+        Assert.All(vm.Files, f => Assert.Equal(FileStatus.Done, f.Status));
+        vm.ClearFilesCommand.Execute(null);
+        vm.Shutdown();
         Directory.Delete(outDir, true);
     }
 }

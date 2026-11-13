@@ -379,7 +379,7 @@ public class ConversionTests : IDisposable
         Assert.StartsWith("'=", V("a"));
         Assert.StartsWith("'@", V("b"));
         Assert.Equal("-5.2", V("c"));              // numeric text untouched
-        Assert.StartsWith("'+91", V("d"));         // phone-style text is protected
+        Assert.Equal("+91 98765 43210", V("d"));   // a sign followed only by digits and spaces can't be a formula: left as is
         Assert.Equal("plain", V("e"));
         Assert.Equal("-7", V("f"));                // real JSON numbers untouched
         Assert.StartsWith("'-cmd", V("g"));
