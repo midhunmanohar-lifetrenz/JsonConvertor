@@ -92,7 +92,19 @@ public class UiTests
     {
         vm.PasteText = text;
         Pump(vm.RefreshPasteAsync());
-        Spin(700);   // let any queued debounced refresh finish so it can't race the assertions
+        WaitForPaste(vm);
+    }
+
+    /// <summary>
+    /// Waits until the debounced re-check (queued 450 ms after an edit) has started and finished, however long the
+    /// machine takes, so it can't race the assertions. A fixed wait here failed now and then on a busy machine.
+    /// </summary>
+    private static void WaitForPaste(MainViewModel vm)
+    {
+        Spin(650);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        while (vm.PasteStatusKind == "busy" && sw.ElapsedMilliseconds < 30000) { Dispatcher.UIThread.RunJobs(); Thread.Sleep(10); }
+        Dispatcher.UIThread.RunJobs();
     }
 
     private static void Shot(Window w, string name)
@@ -204,7 +216,7 @@ public class UiTests
         Assert.True(vm.ShowPasteCandidates);
         Assert.False(vm.PasteHasPreview);
         vm.SelectedPasteCandidate = vm.PasteCandidates.First(c => c.Path == "visits");
-        Spin(300); Pump(vm.RefreshPasteAsync()); Spin(700);
+        Spin(300); Pump(vm.RefreshPasteAsync()); WaitForPaste(vm);
         Assert.True(vm.PasteIsOk, vm.PasteStatusText);
         Assert.Equal(2, vm.PastePreviewRows.Count);
         Assert.Equal(new[] { "v" }, vm.PastePreviewColumns);
@@ -217,7 +229,7 @@ public class UiTests
         // Settings change updates the live preview
         SetPaste(vm, Hospital);
         vm.OrderIndex = 1;                                 // alphabetical
-        Spin(900);
+        WaitForPaste(vm);
         Assert.Equal("demographics.age", vm.PastePreviewColumns[0]);
 
         Directory.Delete(dir, true);
@@ -254,7 +266,7 @@ public class UiTests
         vm.ColumnRows.First(c => c.Name == "patientName").MaskIndex = 1;
         vm.ColumnRows.First(c => c.Name == "mrn").Include = false;
         vm.ColumnRows.First(c => c.Name == "demographics.age").RenameTo = "Age";
-        Spin(1000);
+        WaitForPaste(vm);
         var cols = vm.PastePreviewColumns.ToList();
         Assert.DoesNotContain("mrn", cols);
         Assert.Contains("Age", cols);
@@ -290,11 +302,11 @@ public class UiTests
         vm.SavePresetCommand.Execute(null);
         Assert.Single(vm.Presets);
         vm.ResetRulesCommand.Execute(null);
-        Spin(1000);
+        WaitForPaste(vm);
         Assert.Contains("mrn", vm.PastePreviewColumns);
         vm.SelectedPreset = vm.Presets[0];
         vm.ApplyPresetCommand.Execute(null);
-        Spin(1200);
+        WaitForPaste(vm);
         Assert.DoesNotContain("mrn", vm.PastePreviewColumns);
         Assert.Contains("Age", vm.PastePreviewColumns);
 
@@ -304,7 +316,7 @@ public class UiTests
         SetPaste(vm, many);
         Assert.Equal(10, vm.PastePreviewRows.Count);
         vm.PasteRowsIndex = 1;
-        Spin(1000);
+        WaitForPaste(vm);
         Assert.Equal(30, vm.PastePreviewRows.Count);
         vm.PasteRowsIndex = 0;
 
@@ -505,7 +517,7 @@ public class UiTests
         Assert.False(vm.PasteIsOk);
         Pump(vm.DownloadCsvCommand.ExecuteAsync(null));
         Assert.Empty(dlg.SaveRequests);            // no Save dialog, nothing exported from the old text
-        Pump(vm.RefreshPasteAsync()); Spin(700);
+        Pump(vm.RefreshPasteAsync()); WaitForPaste(vm);
         Assert.True(vm.PasteIsOk);
         vm.Shutdown();
     }

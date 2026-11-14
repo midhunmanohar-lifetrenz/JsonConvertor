@@ -83,14 +83,17 @@ public class LargeFileTests : IDisposable
         GC.Collect();
         long before = GC.GetTotalMemory(true);
         long peak = 0;
-        var timer = new Timer(_ => peak = Math.Max(peak, GC.GetTotalMemory(false)), null, 0, 50);
+        // Sample the memory that is still in use after a collection. Counting not-yet-collected garbage instead made
+        // this check depend on when the garbage collector happened to run (it failed once on a Windows CI runner).
+        var timer = new Timer(_ => peak = Math.Max(peak, GC.GetTotalMemory(true)), null, 0, 200);
         var r = h.Run(p, Csv());
-        timer.Dispose();
+        using (var stopped = new ManualResetEvent(false)) { timer.Dispose(stopped); stopped.WaitOne(); }
         Assert.True(r.Success, r.Message);
         Assert.Equal(n, r.RecordsProcessed);
         long grew = peak - before;
         // The whole file is >100 MB; streaming must stay far below that.
-        Assert.True(grew < 80L * 1024 * 1024, $"managed heap grew by {grew / 1024 / 1024} MB");
+        Console.WriteLine($"100 MB file: memory in use grew by {grew / 1024 / 1024} MB");
+        Assert.True(grew < 40L * 1024 * 1024, $"memory in use grew by {grew / 1024 / 1024} MB");
         Assert.Equal(n + 1, File.ReadLines(r.OutputFiles[0]).Count(l => l.Length > 0) );
     }
 
